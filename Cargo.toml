@@ -1,0 +1,18 @@
+[package]
+name = "cron-parser"
+version = "0.1.0"
+authors = ["Nicolas Embriz <nbari@tequila.io>"]
+description = "Library for parsing cron syntax"
+documentation = "https://docs.rs/cron-parser/latest/cron-parser/"
+homepage = "https://docs.rs/cron-parser/latest/cron-parser/"
+repository = "https://github.com/nbari/cron-parser"
+readme = "README.md"
+keywords = ["cron", "crontab", "parser"]
+categories = ["parsing"]
+license-file = "LICENSE"
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "nbari/cron-parser", branch = "master" }
+
+[dependencies]
