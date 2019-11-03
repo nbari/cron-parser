@@ -1,5 +1,8 @@
 # cron parser
 
+[![crates.io](https://img.shields.io/crates/v/cron-parser.svg)](https://crates.io/crates/cron-parser)
+[![Build Status](https://travis-ci.org/nbari/cron-parser.svg?branch=master)](https://travis-ci.org/nbari/cron-parser)
+
 Returns the next timestamp
 
 ```
