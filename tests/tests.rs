@@ -1,16 +1,21 @@
 use cron_parser::{parse, parse_field};
+use std::collections::BTreeSet;
 
 macro_rules! parse_field_tests {
-        ($($name:ident: $value:expr,)*) => {
-            $(
-                #[test]
-                fn $name() {
-                    let (input, min, max, expected) = $value;
-                    assert_eq!(expected, parse_field(input, min, max).unwrap());
+    ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (input, min, max, expected) = $value;
+                let mut expect = BTreeSet::<u32>::new();
+                for i in expected {
+                    expect.insert(i);
                 }
-            )*
-        }
+                assert_eq!(parse_field(input, min, max).unwrap(), expect);
+            }
+        )*
     }
+}
 
 parse_field_tests! {
     parse_any:("*", 0, 0, Vec::<u32>::new()),
@@ -29,7 +34,14 @@ parse_field_tests! {
     parse_range_5_10_minutes: ("5-10", 0, 59, vec![5,6,7,8,9,10]),
     parse_range_5_10_hours: ("5-10", 0, 12, vec![5,6,7,8,9,10]),
     parse_list_minutes: ("15,30,45,0", 0, 59, vec![0,15,30,45]),
-    parse_8: ("1024", 0, 1024, vec![1024]),
+    parse_1024: ("1024", 0, 1024, vec![1024]),
+    parse_repeat_values:("1,1,1,1,2", 0, 59, vec![1,2]),
+    parse_range_and_list1: ("1-8,11", 0, 23, vec![1,2,3,4,5,6,7,8,11]),
+    parse_range_and_list2: ("1-8,11,9,4,5", 0, 23, vec![1,2,3,4,5,6,7,8,9,11]),
+    parse_range_and_list3: ("*,1-8,11,9,4,5", 0, 23, vec![1,2,3,4,5,6,7,8,9,11]),
+    parse_range_and_list4: ("2-3,9,*,1-8,11,9,4,5", 0, 23, vec![1,2,3,4,5,6,7,8,9,11]),
+    parse_range_list_step: ("*/30,40-45,57", 0, 59, vec![0,30,40,41,42,43,44,45,57]),
+    parse_range_list_step_repeated_values: ("*/30,40-45,57,30,44,41-45", 0, 59, vec![0,30,40,41,42,43,44,45,57]),
 }
 
 #[test]
@@ -62,25 +74,17 @@ fn bad_minute_input() {
 
 #[test]
 fn bad_minute_input_range() {
-    assert!(
-        parse_field("5-60", 0, 59).is_err(),
-        "should thrown error ParseIntError, invalid digit"
-    );
+    assert!(parse_field("5-60", 0, 59).is_err());
 }
 
 #[test]
 fn bad_minute_input_list() {
-    assert!(
-        parse_field("40,50,60", 0, 59).is_err(),
-        "should thrown error ParseIntError, invalid digit"
-    );
+    assert!(parse_field("40,50,60", 0, 59).is_err());
 }
+
 #[test]
 fn bad_hour_input_step() {
-    assert!(
-        parse_field("*/30", 0, 23).is_err(),
-        "should thrown error ParseIntError, invalid digit"
-    );
+    assert!(parse_field("*/30", 0, 23).is_err());
 }
 
 #[test]
