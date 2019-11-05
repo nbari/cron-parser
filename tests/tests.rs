@@ -1,4 +1,4 @@
-use cron_parser::parse_field;
+use cron_parser::{parse, parse_field};
 
 macro_rules! parse_field_tests {
         ($($name:ident: $value:expr,)*) => {
@@ -13,7 +13,7 @@ macro_rules! parse_field_tests {
     }
 
 parse_field_tests! {
-    parse_any:("*", 0, 0, Vec::<usize>::new()),
+    parse_any:("*", 0, 0, Vec::<u32>::new()),
     parse_minutes_0: ("0", 0, 59, vec![0]),
     parse_minutes_1: ("1", 0, 59, vec![1]),
     parse_hours: ("23", 0, 23, vec![23]),
@@ -81,4 +81,9 @@ fn bad_hour_input_step() {
         parse_field("*/30", 0, 23).is_err(),
         "should thrown error ParseIntError, invalid digit"
     );
+}
+
+#[test]
+fn test_parse() {
+    let next = parse("*/5 * * * *").unwrap();
 }
