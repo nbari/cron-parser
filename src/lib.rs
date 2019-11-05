@@ -1,5 +1,8 @@
-use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
+use crate::fields::*;
+use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
 use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
+
+mod fields;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -17,9 +20,9 @@ impl fmt::Display for ParseError {
             ParseError::InvalidMinute => write!(f, "invalid minute"),
             ParseError::InvalidSyntax => write!(f, "invalid minute"),
             ParseError::InvalidValue => write!(f, "invalid value"),
-            ParseError::InvalidRange => write!(f, "wrong input. Hyphens define ranges. For example, 2000–2010 indicates every year between 2000 and 2010, inclusive."),
+            ParseError::InvalidRange => write!(f, "invalid input"),
             ParseError::ParseIntError(ref err) => err.fmt(f),
-            ParseError::TryFromIntError(ref err)  => err.fmt(f),
+            ParseError::TryFromIntError(ref err) => err.fmt(f),
         }
     }
 }
@@ -39,12 +42,12 @@ impl From<num::TryFromIntError> for ParseError {
 
 /// Parse cron syntax
 /// ```text
-///                                                   index
-/// ┌───────────── minute (0 - 59)                    0
-/// │ ┌───────────── hour (0 - 23)                    1
-/// │ │ ┌───────────── day of the month (1 - 31)      2
-/// │ │ │ ┌───────────── month (1 - 12)               3
-/// │ │ │ │ ┌───────────── day of the week (0 - 6)    4
+///
+/// ┌───────────── minute (0 - 59)
+/// │ ┌───────────── hour (0 - 23)
+/// │ │ ┌───────────── day of the month (1 - 31)
+/// │ │ │ ┌───────────── month (1 - 12)
+/// │ │ │ │ ┌───────────── day of the week (0 - 6)
 /// │ │ │ │ │
 /// │ │ │ │ │
 /// │ │ │ │ │
@@ -54,76 +57,41 @@ impl From<num::TryFromIntError> for ParseError {
 /// Example
 /// ```
 /// use cron_parser::parse;
+/// use chrono::Utc;
 ///
 /// fn main() {
-///     assert!(parse("*/5 * * * *").is_ok(), "todo");
+///     assert!(parse("*/5 * * * *", Utc::now()).is_ok());
 /// }
 /// ```
-pub fn parse(cron: &str) -> Result<DateTime<Local>, ParseError> {
-    let mut next = chrono::Local::now() + chrono::Duration::minutes(1);
+pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError> {
+    let next = dt + Duration::minutes(1);
     let fields: Vec<&str> = cron.split_whitespace().collect();
     if fields.len() > 5 {
         return Err(ParseError::InvalidSyntax);
     }
 
-    // get month
+    // * * * * <month>
     let month = parse_field(fields[3], 1, 12)?;
-    if !month.is_empty() {
-        println!("----> NO EMPTY{:?} {}", month, next);
-    }
+    let mut new_next = next_month(month, next)?;
 
-    // get day
+    // * * * <dom> *
     let day = parse_field(fields[2], 1, 31)?;
-    if !day.is_empty() {
-        println!("----> NO EMPTY{:?} {}", day, next);
-    }
+    new_next = next_dom(day, new_next, next.day())?;
 
-    // get hour
+    // * <hour> * * *
     let hour = parse_field(fields[1], 0, 23)?;
-    if !hour.is_empty() {
-        println!("----> NO EMPTY{:?} {}", hour, next);
-    }
+    new_next = next_hour(hour, new_next, next.hour())?;
 
-    // get minute
+    // <minute> * * *
     let minutes = parse_field(fields[0], 0, 59)?;
-    if !minutes.is_empty() {
-        next = exp_minute(minutes, next)?;
-    }
+    new_next = next_minute(minutes, new_next, next.minute())?;
 
-    println!("{}", next);
-    Ok(next)
-}
+    // * * * * <dow>
+    //let days = parse_field(fields[4], 0, 6)?;
+    //next = next_dow(days, next)?;
 
-pub fn exp_minute(
-    minutes: BTreeSet<u32>,
-    dt: DateTime<Local>,
-) -> Result<DateTime<Local>, ParseError> {
-    let next_minute: u32;
-    let mut iterator = minutes.iter();
-    loop {
-        match iterator.next() {
-            Some(minute) => {
-                if *minute >= dt.minute() {
-                    next_minute = *minute;
-                    break;
-                }
-            }
-            None => {
-                next_minute = *minutes.iter().nth(0).unwrap();
-                break;
-            }
-        }
-    }
-    let mut next_dt =
-        chrono::Local
-            .ymd(dt.year(), dt.month(), dt.day())
-            .and_hms(dt.hour(), next_minute, 0);
-    if next_minute != dt.minute() {
-        if dt.minute() > next_minute {
-            next_dt = next_dt + chrono::Duration::hours(1);
-        }
-    }
-    Ok(next_dt)
+    println!("{}\n{}", next, new_next);
+    Ok(new_next)
 }
 
 /// parse_field
@@ -140,6 +108,11 @@ pub fn exp_minute(
 /// month   min: 1, max: 12
 /// dweek   min: 0, max: 6
 /// ```
+///
+/// The field column can have a `*` or a list of elements separated by commas.
+/// An element is either a number in the ranges or two numbers in the range
+/// separated by a hyphen, slashes can be combined with ranges to specify
+/// step values
 ///
 /// Example
 /// ```
@@ -165,18 +138,16 @@ pub fn exp_minute(
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
     // set of integers
     let mut values = BTreeSet::<u32>::new();
-
-    // The field column can have a * or a list of elements separated by commas.
-    // An element is either a number in the ranges or two numbers in the range
-    // separated by a hyphen. slashes can be combined with ranges to specify
-    // step values
     let fields: Vec<&str> = field.split(",").collect();
-
     let mut iterator = fields.into_iter();
     loop {
         match iterator.next() {
             Some(field) => match field {
-                "*" => continue,
+                "*" => {
+                    for i in min..max + 1 {
+                        values.insert(i);
+                    }
+                }
                 // step values
                 f if field.starts_with("*/") => {
                     let f: u32 = f.trim_start_matches("*/").parse()?;
