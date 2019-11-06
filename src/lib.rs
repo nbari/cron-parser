@@ -1,8 +1,5 @@
-use crate::fields::*;
-use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
-
-mod fields;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -64,34 +61,65 @@ impl From<num::TryFromIntError> for ParseError {
 /// }
 /// ```
 pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError> {
-    let next = dt + Duration::minutes(1);
+    let mut next = dt + Duration::minutes(1);
     let fields: Vec<&str> = cron.split_whitespace().collect();
     if fields.len() > 5 {
         return Err(ParseError::InvalidSyntax);
     }
 
-    // * * * * <month>
-    let month = parse_field(fields[3], 1, 12)?;
-    let mut new_next = next_month(month, next)?;
+    next = Utc
+        .ymd(next.year(), next.month(), next.day())
+        .and_hms(next.hour(), next.minute(), 0);
+    loop {
+        // * * * * <dow>
+        let dow = parse_field(fields[4], 0, 6)?;
+        if !dow.contains(&next.weekday().num_days_from_sunday()) {
+            next = next + Duration::days(1);
+            continue;
+        }
 
-    // * * * <dom> *
-    let day = parse_field(fields[2], 1, 31)?;
-    new_next = next_dom(day, new_next, next.day())?;
+        // * * * * <month>
+        let month = parse_field(fields[3], 1, 12)?;
+        if !month.contains(&next.month()) {
+            if next.month() == 12 {
+                next = Utc.ymd(next.year() + 1, 1, 1).and_hms(0, 0, 0);
+            } else {
+                next = Utc.ymd(next.year(), next.month() + 1, 1).and_hms(0, 0, 0);
+            }
+            continue;
+        }
 
-    // * <hour> * * *
-    let hour = parse_field(fields[1], 0, 23)?;
-    new_next = next_hour(hour, new_next, next.hour())?;
+        // * * * <dom> *
+        let dom = parse_field(fields[2], 1, 31)?;
+        if !dom.contains(&next.day()) {
+            next = next + Duration::days(1);
+            next = Utc
+                .ymd(next.year(), next.month(), next.day())
+                .and_hms(0, 0, 0);
+            continue;
+        }
 
-    // <minute> * * *
-    let minutes = parse_field(fields[0], 0, 59)?;
-    new_next = next_minute(minutes, new_next, next.minute())?;
+        // * <hour> * * *
+        let hour = parse_field(fields[1], 0, 23)?;
+        if !hour.contains(&next.hour()) {
+            next = next + Duration::hours(1);
+            next = Utc
+                .ymd(next.year(), next.month(), next.day())
+                .and_hms(next.hour(), 0, 0);
+        }
 
-    // * * * * <dow>
-    //let days = parse_field(fields[4], 0, 6)?;
-    //next = next_dow(days, next)?;
+        // <minute> * * *
+        let minute = parse_field(fields[0], 0, 59)?;
+        if !minute.contains(&next.minute()) {
+            next = next + Duration::minutes(1);
+            continue;
+        }
 
-    println!("{}\n{}", next, new_next);
-    Ok(new_next)
+        break;
+    }
+
+    println!("{}\n{}", dt, next);
+    Ok(next)
 }
 
 /// parse_field
