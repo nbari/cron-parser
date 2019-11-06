@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Timelike, Utc};
 use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
 
 #[derive(Debug)]
@@ -96,6 +96,17 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
                 .and_hms(0, 0, 0);
+            // TODO prevent loop
+            let days_in_month = if next.month() == 12 {
+                NaiveDate::from_ymd(next.year() + 1, 1, 1)
+            } else {
+                NaiveDate::from_ymd(next.year(), next.month() + 1, 1)
+            }
+            .signed_duration_since(NaiveDate::from_ymd(next.year(), next.month(), 1))
+            .num_days() as u32;
+            if *dom.iter().nth(0).unwrap() > days_in_month {
+                //return Err(ParseError::InvalidValue);
+            }
             continue;
         }
 
@@ -106,9 +117,10 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
                 .and_hms(next.hour(), 0, 0);
+            continue;
         }
 
-        // <minute> * * *
+        // <minute> * * * *
         let minute = parse_field(fields[0], 0, 59)?;
         if !minute.contains(&next.minute()) {
             next = next + Duration::minutes(1);

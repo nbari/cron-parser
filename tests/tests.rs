@@ -81,9 +81,16 @@ parse_tests! {
     any_minute2: ("*/5,* * * * *", 1572969395, 1572969420),
     every_5_mintues: ("*/5 * * * *", 1572969395, 1572969600),
     on_minute_5: ("5 * * * *", 1572969395, 1572969900),
-//    every_minute_every_2nd_hour: ("* */2 * * *", 1572969395, 1572969600),
+    every_minute_every_2nd_hour: ("* */2 * * *", 1572969395, 1572969600),
     every_minute_in_october: ("* * * 10 *", 1572969395, 1601510400),
     every_minute_on_day_4_in_november: ("* * 4 11 *", 1572969395, 1604448000),
+    daily_2am: ("0 2 * * *", 1572969395, 1573005600),
+    twice_a_day_5_17: ("0 5,17 * * *", 1572969395, 1572973200),
+    every_2nd_minute_every_hour_from_1_to_4_and_15:("*/2 1-4,15 * * *", 1572969395,1572969480),
+    febraury_30_1: ("* * 30 */2 *", 1572969395, 1575072000),
+    febraury_30_2: ("* * 30 * *", 1548892800, 1553904000),
+    day_31: ("* 5 31 * *", 1548936000, 1554008400),
+    day_31_ever2months: ("* 5 31 */3 *", 1548936000, 1564549200),
 }
 
 #[test]
@@ -118,6 +125,11 @@ fn bad_hour_input_step() {
 }
 
 #[test]
+fn february_30() {
+    //    assert!(parse("* * 30 2 *", Utc::now()).is_err());
+}
+
+#[test]
 fn test_parse() {
-    let next = parse("*/5 * * * *", Utc::now()).unwrap();
+    assert!(parse("*/5 * * * *", Utc::now()).is_ok());
 }
