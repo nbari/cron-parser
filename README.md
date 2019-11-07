@@ -4,11 +4,11 @@
 [![Build Status](https://travis-ci.org/nbari/cron-parser.svg?branch=master)](https://travis-ci.org/nbari/cron-parser)
 
 ```
-# ┌───────────── minute (0 - 59)
-# │ ┌───────────── hour (0 - 23)
-# │ │ ┌───────────── day of the month (1 - 31)
-# │ │ │ ┌───────────── month (1 - 12)
-# │ │ │ │ ┌───────────── day of the week (0 - 6)
+# ┌─────────────────────  minute (0 - 59)
+# │ ┌───────────────────  hour   (0 - 23)
+# │ │ ┌─────────────────  dom    (1 - 31) day of month
+# │ │ │ ┌───────────────  month  (1 - 12)
+# │ │ │ │ ┌─────────────  dow    (0 - 6)  day of week (Sunday to Saturday)
 # │ │ │ │ │
 # │ │ │ │ │
 # │ │ │ │ │
@@ -27,4 +27,3 @@
 * `,` value list separator
 * `-` range of values
 * `/` step values
-* `?` random value (non-standard)

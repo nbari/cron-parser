@@ -1,23 +1,52 @@
-use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
 
 #[derive(Debug)]
 pub enum ParseError {
+    InvalidCron,
     InvalidMinute,
-    InvalidSyntax,
     InvalidRange,
+    InvalidSyntax,
     InvalidValue,
     ParseIntError(num::ParseIntError),
     TryFromIntError(num::TryFromIntError),
 }
 
+enum Dow {
+    Sun = 0,
+    Mon = 1,
+    Tue = 2,
+    Wed = 3,
+    Thu = 4,
+    Fri = 5,
+    Sat = 6,
+}
+
+impl TryFrom<&str> for Dow {
+    type Error = ();
+
+    fn try_from(val: &str) -> Result<Self, Self::Error> {
+        match &*val.to_uppercase() {
+            "SUN" => Ok(Dow::Sun),
+            "MON" => Ok(Dow::Mon),
+            "TUE" => Ok(Dow::Tue),
+            "WED" => Ok(Dow::Wed),
+            "THU" => Ok(Dow::Thu),
+            "FRI" => Ok(Dow::Fri),
+            "SAT" => Ok(Dow::Sat),
+            _ => Err(()),
+        }
+    }
+}
+
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            ParseError::InvalidCron => write!(f, "invalid cron"),
             ParseError::InvalidMinute => write!(f, "invalid minute"),
+            ParseError::InvalidRange => write!(f, "invalid input"),
             ParseError::InvalidSyntax => write!(f, "invalid minute"),
             ParseError::InvalidValue => write!(f, "invalid value"),
-            ParseError::InvalidRange => write!(f, "invalid input"),
             ParseError::ParseIntError(ref err) => err.fmt(f),
             ParseError::TryFromIntError(ref err) => err.fmt(f),
         }
@@ -44,7 +73,7 @@ impl From<num::TryFromIntError> for ParseError {
 /// │ ┌───────────────────  hour   (0 - 23)
 /// │ │ ┌─────────────────  dom    (1 - 31) day of month
 /// │ │ │ ┌───────────────  month  (1 - 12)
-/// │ │ │ │ ┌─────────────  dow    (0 - 6)  day of week (Sunday to Saturday)
+/// │ │ │ │ ┌─────────────  dow    (0 - 6 or Sun - Sat) day of week (Sunday to Saturday)
 /// │ │ │ │ │
 /// │ │ │ │ │
 /// │ │ │ │ │
@@ -70,12 +99,11 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
     next = Utc
         .ymd(next.year(), next.month(), next.day())
         .and_hms(next.hour(), next.minute(), 0);
+
     loop {
-        // * * * * <dow>
-        let dow = parse_field(fields[4], 0, 6)?;
-        if !dow.contains(&next.weekday().num_days_from_sunday()) {
-            next = next + Duration::days(1);
-            continue;
+        // only try until next leap year
+        if next.year() - dt.year() > 4 {
+            return Err(ParseError::InvalidCron);
         }
 
         // * * * * <month>
@@ -96,17 +124,6 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
                 .and_hms(0, 0, 0);
-            // TODO prevent loop
-            let days_in_month = if next.month() == 12 {
-                NaiveDate::from_ymd(next.year() + 1, 1, 1)
-            } else {
-                NaiveDate::from_ymd(next.year(), next.month() + 1, 1)
-            }
-            .signed_duration_since(NaiveDate::from_ymd(next.year(), next.month(), 1))
-            .num_days() as u32;
-            if *dom.iter().nth(0).unwrap() > days_in_month {
-                //return Err(ParseError::InvalidValue);
-            }
             continue;
         }
 
@@ -127,10 +144,16 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             continue;
         }
 
+        // * * * * <dow>
+        let dow = parse_field(fields[4], 0, 6)?;
+        if !dow.contains(&next.weekday().num_days_from_sunday()) {
+            next = next + Duration::days(1);
+            continue;
+        }
+
         break;
     }
 
-    println!("{}\n{}", dt, next);
     Ok(next)
 }
 
@@ -179,8 +202,13 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
     // set of integers
     let mut values = BTreeSet::<u32>::new();
     let fields: Vec<&str> = field.split(',').collect();
+    let dow = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
     for field in fields.into_iter() {
         match field {
+            day if dow.contains(&field.to_uppercase().as_str()) => {
+                values.insert(Dow::try_from(day).unwrap() as u32);
+            }
             "*" => {
                 for i in min..=max {
                     values.insert(i);
@@ -199,11 +227,26 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
             }
             // range of values
             f if f.contains('-') => {
-                let fields: Vec<u32> = f
-                    .split('-')
-                    .map(|field| field.parse::<u32>())
-                    .collect::<Result<_, _>>()?;
-                if fields.len() != 2 || fields[0] > fields[1] || fields[1] > max {
+                let tmp_fields: Vec<&str> = f.split('-').collect();
+                if tmp_fields.len() != 2 {
+                    return Err(ParseError::InvalidRange);
+                }
+
+                let mut fields: Vec<u32> = Vec::new();
+
+                if dow.contains(&tmp_fields[0].to_uppercase().as_str()) {
+                    fields.push(Dow::try_from(tmp_fields[0]).unwrap() as u32);
+                } else {
+                    fields.push(tmp_fields[0].parse::<u32>()?);
+                };
+
+                if dow.contains(&tmp_fields[1].to_uppercase().as_str()) {
+                    fields.push(Dow::try_from(tmp_fields[1]).unwrap() as u32);
+                } else {
+                    fields.push(tmp_fields[1].parse::<u32>()?);
+                }
+
+                if fields[0] > fields[1] || fields[1] > max {
                     return Err(ParseError::InvalidRange);
                 }
                 for i in (fields[0]..=fields[1]).collect::<Vec<u32>>() {
