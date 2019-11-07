@@ -64,18 +64,17 @@ macro_rules! parse_tests {
     }
 }
 
-/// https://play.rust-lang.org/
-/// ```ignore
-/// extern crate chrono; // 0.4.9
-/// use chrono::{TimeZone, Utc};
-/// fn main() {
-///     // 2019-11-05 15:56:35 UTC 1572969395
-///     let dt = Utc.timestamp(1572969395, 0);
-///     println!("{} {}", dt, dt.timestamp());
-///     let next = Utc.ymd(2019, 11, 5).and_hms(16, 5, 0);
-///     println!("{} {}", next, next.timestamp());
-/// }
-/// ```
+// https://play.rust-lang.org/
+//
+// extern crate chrono; // 0.4.9
+// use chrono::{TimeZone, Utc};
+// fn main() {
+//     // 2019-11-05 15:56:35 UTC 1572969395
+//     let dt = Utc.timestamp(1572969395, 0);
+//     println!("{} {}", dt, dt.timestamp());
+//     let next = Utc.ymd(2019, 11, 5).and_hms(16, 5, 0);
+//     println!("{} {}", next, next.timestamp());
+// }
 parse_tests! {
     any_minute: ("* * * * *", 1572969395, 1572969420),
     any_minute2: ("*/5,* * * * *", 1572969395, 1572969420),

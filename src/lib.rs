@@ -40,11 +40,11 @@ impl From<num::TryFromIntError> for ParseError {
 /// Parse cron syntax
 /// ```text
 ///
-/// ┌───────────── minute (0 - 59)
-/// │ ┌───────────── hour (0 - 23)
-/// │ │ ┌───────────── day of the month (1 - 31)
-/// │ │ │ ┌───────────── month (1 - 12)
-/// │ │ │ │ ┌───────────── day of the week (0 - 6)
+/// ┌─────────────────────  minute (0 - 59)
+/// │ ┌───────────────────  hour   (0 - 23)
+/// │ │ ┌─────────────────  dom    (1 - 31) day of month
+/// │ │ │ ┌───────────────  month  (1 - 12)
+/// │ │ │ │ ┌─────────────  dow    (0 - 6)  day of week (Sunday to Saturday)
 /// │ │ │ │ │
 /// │ │ │ │ │
 /// │ │ │ │ │
@@ -178,49 +178,45 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
     // set of integers
     let mut values = BTreeSet::<u32>::new();
-    let fields: Vec<&str> = field.split(",").collect();
-    let mut iterator = fields.into_iter();
-    loop {
-        match iterator.next() {
-            Some(field) => match field {
-                "*" => {
-                    for i in min..max + 1 {
-                        values.insert(i);
-                    }
+    let fields: Vec<&str> = field.split(',').collect();
+    for field in fields.into_iter() {
+        match field {
+            "*" => {
+                for i in min..=max {
+                    values.insert(i);
                 }
-                // step values
-                f if field.starts_with("*/") => {
-                    let f: u32 = f.trim_start_matches("*/").parse()?;
-                    if f > max {
-                        return Err(ParseError::InvalidValue);
-                    }
-                    let step = usize::try_from(f)?;
-                    for i in (min..max + 1).step_by(step).collect::<Vec<u32>>() {
-                        values.insert(i);
-                    }
+            }
+            // step values
+            f if field.starts_with("*/") => {
+                let f: u32 = f.trim_start_matches("*/").parse()?;
+                if f > max {
+                    return Err(ParseError::InvalidValue);
                 }
-                // range of values
-                f if f.contains("-") => {
-                    let fields: Vec<u32> = f
-                        .split('-')
-                        .map(|field| field.parse::<u32>())
-                        .collect::<Result<_, _>>()?;
-                    if fields.len() != 2 || fields[0] > fields[1] || fields[1] > max {
-                        return Err(ParseError::InvalidRange);
-                    }
-                    for i in (fields[0]..fields[1] + 1).collect::<Vec<u32>>() {
-                        values.insert(i);
-                    }
+                let step = usize::try_from(f)?;
+                for i in (min..=max).step_by(step).collect::<Vec<u32>>() {
+                    values.insert(i);
                 }
-                _ => {
-                    let f = field.parse::<u32>()?;
-                    if f > max {
-                        return Err(ParseError::InvalidValue);
-                    }
-                    values.insert(f);
+            }
+            // range of values
+            f if f.contains('-') => {
+                let fields: Vec<u32> = f
+                    .split('-')
+                    .map(|field| field.parse::<u32>())
+                    .collect::<Result<_, _>>()?;
+                if fields.len() != 2 || fields[0] > fields[1] || fields[1] > max {
+                    return Err(ParseError::InvalidRange);
                 }
-            },
-            None => break,
+                for i in (fields[0]..=fields[1]).collect::<Vec<u32>>() {
+                    values.insert(i);
+                }
+            }
+            _ => {
+                let f = field.parse::<u32>()?;
+                if f > max {
+                    return Err(ParseError::InvalidValue);
+                }
+                values.insert(f);
+            }
         }
     }
     Ok(values)
