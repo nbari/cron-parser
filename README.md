@@ -57,3 +57,35 @@ to run every 3rd day of week, this means Sunday, Wednesday, Saturday.
 * `,` value list separator
 * `-` range of values
 * `/` step values
+
+
+Getting the next 10 iterations:
+
+    use chrono::{DateTime, Utc};
+    use cron_parser::parse;
+
+    fn main() {
+        let now = Utc::now();
+        let mut crons = Vec::<DateTime<Utc>>::new();
+        let mut next = parse("*/5 * * * *", now).unwrap();
+        for _ in 0..10 {
+            next = parse("*/5 * * * *", next).unwrap();
+            crons.push(next);
+        }
+        for x in crons {
+            println!("{} - {}", x, x.timestamp());
+        }
+    }
+
+It will print something like:
+
+    2019-11-08 19:50:00 UTC - 1573242600
+    2019-11-08 19:55:00 UTC - 1573242900
+    2019-11-08 20:00:00 UTC - 1573243200
+    2019-11-08 20:05:00 UTC - 1573243500
+    2019-11-08 20:10:00 UTC - 1573243800
+    2019-11-08 20:15:00 UTC - 1573244100
+    2019-11-08 20:20:00 UTC - 1573244400
+    2019-11-08 20:25:00 UTC - 1573244700
+    2019-11-08 20:30:00 UTC - 1573245000
+    2019-11-08 20:35:00 UTC - 1573245300
