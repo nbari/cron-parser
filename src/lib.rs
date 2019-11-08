@@ -217,12 +217,15 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
 ///      // every 3 months
 ///      assert_eq!(parse_field("*/3", 1, 12).unwrap(),
 ///      BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect()));
+///
 ///      // day 31
 ///      assert_eq!(parse_field("31", 1, 31).unwrap(),
 ///      BTreeSet::<u32>::from([31].iter().cloned().collect()));
+///
 ///      // every minute from 40 through 50
 ///      assert_eq!(parse_field("40-50", 0, 59).unwrap(),
 ///      BTreeSet::<u32>::from([40,41,42,43,44,45,46,47,48,49,50].iter().cloned().collect()));
+///
 ///      // at hour 3,15,23
 ///      assert_eq!(parse_field("15,3,23", 0, 23).unwrap(),
 ///      BTreeSet::<u32>::from([3,15,23].iter().cloned().collect()));
