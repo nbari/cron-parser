@@ -154,3 +154,9 @@ fn test_parse() {
     assert!(parse("0 0 * * */Wed", Utc::now()).is_err());
     assert!(parse("0 0 * * */2-5", Utc::now()).is_err());
 }
+
+#[test]
+fn test_bad_input() {
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", Utc::now()).is_ok());
+}

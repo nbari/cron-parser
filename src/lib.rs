@@ -1,3 +1,25 @@
+//! Library for parsing cron syntax, returning the next available date.
+//!
+//! Example:
+//! ```
+//! use chrono::{TimeZone, Utc};
+//! use cron_parser::parse;
+//!
+//! fn main() {
+//!    if let Ok(next) = parse("*/5 * * * *", Utc::now()) {
+//!         println!("when: {}", next);
+//!    }
+//!
+//!    // passing a custom timestamp
+//!    if let Ok(next) = parse("0 0 29 2 *", Utc.timestamp(1893456000, 0)) {
+//!         println!("next leap year: {}", next);
+//!         assert_eq!(next.timestamp(), 1961625600);
+//!    }
+//!
+//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
+//!    assert!(parse("* * * * */Fri", Utc::now()).is_err());
+//! }
+//! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
 
@@ -169,7 +191,16 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
 /// hours   min: 0, max: 23
 /// days    min: 1, max: 31
 /// month   min: 1, max: 12
-/// dweek   min: 0, max: 6
+/// dweek   min: 0, max: 6 or min: Sun, max Sat
+///
+/// Day of week
+///    Sun = 0
+///    Mon = 1
+///    Tue = 2
+///    Wed = 3
+///    Thu = 4
+///    Fri = 5
+///    Sat = 6
 /// ```
 ///
 /// The field column can have a `*` or a list of elements separated by commas.
@@ -184,7 +215,6 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
 ///
 /// fn main() {
 ///      // every 3 months
-///      // assert_eq!(parse_field("*/3", 1, 12).unwrap(), vec![1,4,7,10]);
 ///      assert_eq!(parse_field("*/3", 1, 12).unwrap(),
 ///      BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect()));
 ///      // day 31
@@ -201,7 +231,7 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
     // set of integers
     let mut values = BTreeSet::<u32>::new();
-    let fields: Vec<&str> = field.split(',').collect();
+    let fields: Vec<&str> = field.split(',').filter(|s| !s.is_empty()).collect();
     let dow = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
     for field in fields.into_iter() {
