@@ -21,6 +21,9 @@ Example:
             println!("next leap year: {}", next);
             assert_eq!(next.timestamp(), 1961625600);
        }
+
+       assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
+       assert!(parse("* * * * */Fri", Utc::now()).is_err());
     }
 
 
