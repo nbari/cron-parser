@@ -106,9 +106,9 @@ parse_tests! {
     every_dow_thu: ("0 0 * * Thu", 1573151292, 1573689600),
     every_dow_fri: ("0 0 * * Fri", 1573151292, 1573171200),
     every_dow_sat: ("0 0 * * Sat", 1573151292, 1573257600),
-    every_dow_Wed_and_Fri: ("0 0 * * Wed,Fri", 1573151292, 1573171200),
+    every_dow_wed_and_fri: ("0 0 * * Wed,Fri", 1573151292, 1573171200),
     dow_feb: ("0 0 29 2 6", 1573151292, 1582934400),
-    every_dow_Wed_2_Fri: ("0 0 * * Wed-Fri", 1573151292, 1573171200),
+    every_dow_wed_2_fri: ("0 0 * * Wed-Fri", 1573151292, 1573171200),
 }
 
 #[test]
