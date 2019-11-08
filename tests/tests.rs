@@ -160,3 +160,14 @@ fn test_bad_input() {
     assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", Utc::now()).is_ok());
     assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", Utc::now()).is_ok());
 }
+
+#[test]
+fn test_next_100_iterations() {
+    let now = Utc.timestamp(1573239864, 0);
+    let mut next = parse("0 23 */2 * *", now).unwrap();
+    assert_eq!(next.timestamp(), 1573340400);
+    for _ in 0..100 {
+        next = parse("0 23 */2 * *", next).unwrap();
+    }
+    assert_eq!(next.timestamp(), 1590274800);
+}

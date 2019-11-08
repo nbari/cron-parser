@@ -26,9 +26,7 @@ use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
 #[derive(Debug)]
 pub enum ParseError {
     InvalidCron,
-    InvalidMinute,
     InvalidRange,
-    InvalidSyntax,
     InvalidValue,
     ParseIntError(num::ParseIntError),
     TryFromIntError(num::TryFromIntError),
@@ -65,9 +63,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ParseError::InvalidCron => write!(f, "invalid cron"),
-            ParseError::InvalidMinute => write!(f, "invalid minute"),
             ParseError::InvalidRange => write!(f, "invalid input"),
-            ParseError::InvalidSyntax => write!(f, "invalid minute"),
             ParseError::InvalidValue => write!(f, "invalid value"),
             ParseError::ParseIntError(ref err) => err.fmt(f),
             ParseError::TryFromIntError(ref err) => err.fmt(f),
@@ -115,7 +111,7 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
     let mut next = dt + Duration::minutes(1);
     let fields: Vec<&str> = cron.split_whitespace().collect();
     if fields.len() > 5 {
-        return Err(ParseError::InvalidSyntax);
+        return Err(ParseError::InvalidCron);
     }
 
     next = Utc
