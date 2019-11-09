@@ -6,18 +6,18 @@
 //! use cron_parser::parse;
 //!
 //! fn main() {
-//!    if let Ok(next) = parse("*/5 * * * *", Utc::now()) {
+//!    if let Ok(next) = parse("*/5 * * * *", Utc::now(), Utc) {
 //!         println!("when: {}", next);
 //!    }
 //!
 //!    // passing a custom timestamp
-//!    if let Ok(next) = parse("0 0 29 2 *", Utc.timestamp(1893456000, 0)) {
+//!    if let Ok(next) = parse("0 0 29 2 *", Utc.timestamp(1893456000, 0), Utc) {
 //!         println!("next leap year: {}", next);
 //!         assert_eq!(next.timestamp(), 1961625600);
 //!    }
 //!
-//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
-//!    assert!(parse("* * * * */Fri", Utc::now()).is_err());
+//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now(), Utc).is_ok());
+//!    assert!(parse("* * * * */Fri", Utc::now(), Utc).is_err());
 //! }
 //! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
@@ -104,11 +104,14 @@ impl From<num::TryFromIntError> for ParseError {
 /// use chrono::Utc;
 ///
 /// fn main() {
-///     assert!(parse("*/5 * * * *", Utc::now()).is_ok());
+///     assert!(parse("*/5 * * * *", Utc::now(), Utc).is_ok());
 /// }
 /// ```
-pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError> {
-    let mut next = dt + Duration::minutes(1);
+pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>, tz: TZ) -> Result<DateTime<TZ>, ParseError>
+where
+    TZ::Offset: std::fmt::Display,
+{
+    let mut next = Utc.from_local_datetime(&dt.naive_local()).unwrap() + Duration::minutes(1);
     let fields: Vec<&str> = cron.split_whitespace().collect();
     if fields.len() > 5 {
         return Err(ParseError::InvalidCron);
@@ -118,13 +121,13 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
         .ymd(next.year(), next.month(), next.day())
         .and_hms(next.hour(), next.minute(), 0);
 
-    loop {
+    let result = loop {
         // only try until next leap year
         if next.year() - dt.year() > 4 {
             return Err(ParseError::InvalidCron);
         }
 
-        // * * * * <month>
+        // * * * <month> *
         let month = parse_field(fields[3], 1, 12)?;
         if !month.contains(&next.month()) {
             if next.month() == 12 {
@@ -135,7 +138,7 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             continue;
         }
 
-        // * * * <dom> *
+        // * * <dom> * *
         let dom = parse_field(fields[2], 1, 31)?;
         if !dom.contains(&next.day()) {
             next = next + Duration::days(1);
@@ -169,10 +172,15 @@ pub fn parse(cron: &str, dt: DateTime<Utc>) -> Result<DateTime<Utc>, ParseError>
             continue;
         }
 
-        break;
-    }
+        // Valid datetime for the timezone
+        if let Some(dt) = tz.from_local_datetime(&next.naive_local()).latest() {
+            break dt;
+        }
 
-    Ok(next)
+        next = next + Duration::minutes(1);
+    };
+
+    Ok(result)
 }
 
 /// parse_field

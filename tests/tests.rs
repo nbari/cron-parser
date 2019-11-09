@@ -52,15 +52,39 @@ parse_field_tests! {
 }
 
 macro_rules! parse_tests {
-    ($($name:ident: $value:expr,)*) => {
+    ($tz:expr, { $($name:ident: $value:expr,)* }) => {
         $(
             #[test]
             fn $name() {
+                use chrono::{Utc, TimeZone};
+
                 let (input, ts, expected) = $value;
+
                 let dt = Utc.timestamp(ts, 0);
-                assert_eq!(parse(input, dt).unwrap().timestamp(), expected);
+                let dt = $tz.from_local_datetime(&dt.naive_utc()).unwrap();
+
+                let expected = $tz
+                    .from_local_datetime(&Utc.timestamp(expected, 0).naive_utc())
+                    .unwrap()
+                    .timestamp();
+
+                assert_eq!(crate::parse(input, dt, $tz).unwrap().timestamp(), expected);
             }
         )*
+    }
+}
+
+macro_rules! parse_tests_tz {
+    ([], { $($tests:tt)* }) => {};
+
+    ([$name:ident: $tz:expr, $($tzs: tt)*], { $($tests:tt)* }) => {
+        mod $name {
+            parse_tests!($tz, {
+                $($tests)*
+            });
+        }
+
+        parse_tests_tz!([$($tzs)*], { $($tests)* });
     }
 }
 
@@ -75,40 +99,46 @@ macro_rules! parse_tests {
 //     let next = Utc.ymd(2019, 11, 5).and_hms(16, 5, 0);
 //     println!("{} {}", next, next.timestamp());
 // }
-parse_tests! {
-    any_minute: ("* * * * *", 1572969395, 1572969420),
-    any_minute2: ("*/5,* * * * *", 1572969395, 1572969420),
-    every_5_mintues: ("*/5 * * * *", 1572969395, 1572969600),
-    on_minute_5: ("5 * * * *", 1572969395, 1572969900),
-    every_minute_every_2nd_hour: ("* */2 * * *", 1572969395, 1572969600),
-    every_minute_in_october: ("* * * 10 *", 1572969395, 1601510400),
-    every_minute_on_day_4_in_november: ("* * 4 11 *", 1572969395, 1604448000),
-    daily_2am: ("0 2 * * *", 1572969395, 1573005600),
-    twice_a_day_5_17: ("0 5,17 * * *", 1572969395, 1572973200),
-    every_2nd_minute_every_hour_from_1_to_4_and_15:("*/2 1-4,15 * * *", 1572969395,1572969480),
-    febraury_30_1: ("* * 30 */2 *", 1572969395, 1575072000),
-    febraury_30_2: ("* * 30 * *", 1548892800, 1553904000),
-    febraury_29: ("* * 29 2 *", 1583020800, 1709164800),
-    day_31: ("* 5 31 * *", 1548936000, 1554008400),
-    day_31_ever2months: ("* 5 31 */3 *", 1548936000, 1564549200),
-    leap_year: ("* * 28-31 2 *", 1583020800, 1614470400),
-    every_dow_0: ("0 0 * * 0", 1573151292, 1573344000),
-    every_dow_1: ("0 0 * * 1", 1573151292, 1573430400),
-    every_dow_2: ("0 0 * * 2", 1573151292, 1573516800),
-    every_dow_3: ("0 0 * * 3", 1573151292, 1573603200),
-    every_dow_4: ("0 0 * * 4", 1573151292, 1573689600),
-    every_dow_5: ("0 0 * * 5", 1573151292, 1573171200),
-    every_dow_6: ("0 0 * * 6", 1573151292, 1573257600),
-    every_dow_sun: ("0 0 * * Sun", 1573151292, 1573344000),
-    every_dow_mon: ("0 0 * * Mon", 1573151292, 1573430400),
-    every_dow_tue: ("0 0 * * Tue", 1573151292, 1573516800),
-    every_dow_wed: ("0 0 * * Wed", 1573151292, 1573603200),
-    every_dow_thu: ("0 0 * * Thu", 1573151292, 1573689600),
-    every_dow_fri: ("0 0 * * Fri", 1573151292, 1573171200),
-    every_dow_sat: ("0 0 * * Sat", 1573151292, 1573257600),
-    every_dow_wed_and_fri: ("0 0 * * Wed,Fri", 1573151292, 1573171200),
-    dow_feb: ("0 0 29 2 6", 1573151292, 1582934400),
-    every_dow_wed_2_fri: ("0 0 * * Wed-Fri", 1573151292, 1573171200),
+parse_tests_tz! {
+    [
+        utc: chrono::Utc,
+        local: chrono::Local,
+        sao_paulo: chrono_tz::America::Sao_Paulo,
+    ], {
+        any_minute: ("* * * * *", 1572969395, 1572969420),
+        any_minute2: ("*/5,* * * * *", 1572969395, 1572969420),
+        every_5_mintues: ("*/5 * * * *", 1572969395, 1572969600),
+        on_minute_5: ("5 * * * *", 1572969395, 1572969900),
+        every_minute_every_2nd_hour: ("* */2 * * *", 1572969395, 1572969600),
+        every_minute_in_october: ("* * * 10 *", 1572969395, 1601510400),
+        every_minute_on_day_4_in_november: ("* * 4 11 *", 1572969395, 1604448000),
+        daily_2am: ("0 2 * * *", 1572969395, 1573005600),
+        twice_a_day_5_17: ("0 5,17 * * *", 1572969395, 1572973200),
+        every_2nd_minute_every_hour_from_1_to_4_and_15:("*/2 1-4,15 * * *", 1572969395,1572969480),
+        febraury_30_1: ("* * 30 */2 *", 1572969395, 1575072000),
+        febraury_30_2: ("* * 30 * *", 1548892800, 1553904000),
+        febraury_29: ("* * 29 2 *", 1583020800, 1709164800),
+        day_31: ("* 5 31 * *", 1548936000, 1554008400),
+        day_31_ever2months: ("* 5 31 */3 *", 1548936000, 1564549200),
+        leap_year: ("* * 28-31 2 *", 1583020800, 1614470400),
+        every_dow_0: ("0 0 * * 0", 1573151292, 1573344000),
+        every_dow_1: ("0 0 * * 1", 1573151292, 1573430400),
+        every_dow_2: ("0 0 * * 2", 1573151292, 1573516800),
+        every_dow_3: ("0 0 * * 3", 1573151292, 1573603200),
+        every_dow_4: ("0 0 * * 4", 1573151292, 1573689600),
+        every_dow_5: ("0 0 * * 5", 1573151292, 1573171200),
+        every_dow_6: ("0 0 * * 6", 1573151292, 1573257600),
+        every_dow_sun: ("0 0 * * Sun", 1573151292, 1573344000),
+        every_dow_mon: ("0 0 * * Mon", 1573151292, 1573430400),
+        every_dow_tue: ("0 0 * * Tue", 1573151292, 1573516800),
+        every_dow_wed: ("0 0 * * Wed", 1573151292, 1573603200),
+        every_dow_thu: ("0 0 * * Thu", 1573151292, 1573689600),
+        every_dow_fri: ("0 0 * * Fri", 1573151292, 1573171200),
+        every_dow_sat: ("0 0 * * Sat", 1573151292, 1573257600),
+        every_dow_wed_and_fri: ("0 0 * * Wed,Fri", 1573151292, 1573171200),
+        dow_feb: ("0 0 29 2 6", 1573151292, 1582934400),
+        every_dow_wed_2_fri: ("0 0 * * Wed-Fri", 1573151292, 1573171200),
+    }
 }
 
 #[test]
@@ -144,30 +174,30 @@ fn bad_hour_input_step() {
 
 #[test]
 fn february_30() {
-    assert!(parse("* * 30 2 *", Utc::now()).is_err());
+    assert!(parse("* * 30 2 *", Utc::now(), Utc).is_err());
 }
 
 #[test]
 fn test_parse() {
-    assert!(parse("*/5 * * * *", Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", Utc.timestamp(1573151292, 0)).is_err());
-    assert!(parse("0 0 * * */Wed", Utc::now()).is_err());
-    assert!(parse("0 0 * * */2-5", Utc::now()).is_err());
+    assert!(parse("*/5 * * * *", Utc::now(), Utc).is_ok());
+    assert!(parse("0 0 29 2 5", Utc.timestamp(1573151292, 0), Utc).is_err());
+    assert!(parse("0 0 * * */Wed", Utc::now(), Utc).is_err());
+    assert!(parse("0 0 * * */2-5", Utc::now(), Utc).is_err());
 }
 
 #[test]
 fn test_bad_input() {
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", Utc::now()).is_ok());
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", Utc::now(), Utc).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", Utc::now(), Utc).is_ok());
 }
 
 #[test]
 fn test_next_100_iterations() {
     let now = Utc.timestamp(1573239864, 0);
-    let mut next = parse("0 23 */2 * *", now).unwrap();
+    let mut next = parse("0 23 */2 * *", now, Utc).unwrap();
     assert_eq!(next.timestamp(), 1573340400);
     for _ in 0..100 {
-        next = parse("0 23 */2 * *", next).unwrap();
+        next = parse("0 23 */2 * *", next, Utc).unwrap();
     }
     assert_eq!(next.timestamp(), 1590274800);
 }
