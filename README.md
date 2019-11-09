@@ -1,6 +1,5 @@
 # cron parser
 
-
 [![crates.io](https://img.shields.io/crates/v/cron-parser.svg)](https://crates.io/crates/cron-parser)
 [![Build Status](https://travis-ci.org/nbari/cron-parser.svg?branch=master)](https://travis-ci.org/nbari/cron-parser)
 
@@ -59,7 +58,16 @@ to run every 3rd day of week, this means Sunday, Wednesday, Saturday.
 * `/` step values
 
 
-Getting the next 10 iterations:
+Depends on crate [chrono](https://crates.io/crates/chrono).
+
+Example of `Cargo.toml`:
+
+    [dependencies]
+    chrono = "^0.4"
+    cron-parser = "^0.3"
+
+
+Getting the next 10 leap year iterations:
 
     use chrono::{DateTime, Utc};
     use cron_parser::parse;
@@ -67,9 +75,9 @@ Getting the next 10 iterations:
     fn main() {
         let now = Utc::now();
         let mut crons = Vec::<DateTime<Utc>>::new();
-        let mut next = parse("*/5 * * * *", now).unwrap();
+        let mut next = parse("0 0 29 2 *", now).unwrap();
         for _ in 0..10 {
-            next = parse("*/5 * * * *", next).unwrap();
+            next = parse("0 0 29 2 *", next).unwrap();
             crons.push(next);
         }
         for x in crons {
@@ -79,13 +87,13 @@ Getting the next 10 iterations:
 
 It will print something like:
 
-    2019-11-08 19:50:00 UTC - 1573242600
-    2019-11-08 19:55:00 UTC - 1573242900
-    2019-11-08 20:00:00 UTC - 1573243200
-    2019-11-08 20:05:00 UTC - 1573243500
-    2019-11-08 20:10:00 UTC - 1573243800
-    2019-11-08 20:15:00 UTC - 1573244100
-    2019-11-08 20:20:00 UTC - 1573244400
-    2019-11-08 20:25:00 UTC - 1573244700
-    2019-11-08 20:30:00 UTC - 1573245000
-    2019-11-08 20:35:00 UTC - 1573245300
+    2024-02-29 00:00:00 UTC - 1709164800
+    2028-02-29 00:00:00 UTC - 1835395200
+    2032-02-29 00:00:00 UTC - 1961625600
+    2036-02-29 00:00:00 UTC - 2087856000
+    2040-02-29 00:00:00 UTC - 2214086400
+    2044-02-29 00:00:00 UTC - 2340316800
+    2048-02-29 00:00:00 UTC - 2466547200
+    2052-02-29 00:00:00 UTC - 2592777600
+    2056-02-29 00:00:00 UTC - 2719008000
+    2060-02-29 00:00:00 UTC - 2845238400
