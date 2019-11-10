@@ -190,3 +190,16 @@ fn test_timezone() {
     assert_eq!(next_utc.timestamp(), 1573406100);
     assert_ne!(next_pt.to_string(), next_utc.to_string());
 }
+
+#[test]
+fn test_timezone_dst() {
+    // 2018-11-04 1:30
+    use chrono_tz::America::Chicago;
+    let utc = Utc.timestamp(1541309400, 0);
+    let cst = utc.with_timezone(&Chicago);
+    let mut next = parse("*/15 * * * *", cst).unwrap();
+    for _ in 0..10 {
+        next = parse("*/15 * * * *", next).unwrap();
+    }
+    assert_eq!(next.timestamp(), 1541322900);
+}

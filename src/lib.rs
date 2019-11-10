@@ -3,6 +3,7 @@
 //! Example:
 //! ```
 //! use chrono::{TimeZone, Utc};
+//! use chrono_tz::Europe::Lisbon;
 //! use cron_parser::parse;
 //!
 //! fn main() {
@@ -18,6 +19,9 @@
 //!
 //!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
 //!    assert!(parse("* * * * */Fri", Utc::now()).is_err());
+//!
+//!    // use custom timezone
+//!    assert!(parse("*/5 * * * *", Utc::now().with_timezone(&Lisbon)).is_ok());
 //! }
 //! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
@@ -105,6 +109,10 @@ impl From<num::TryFromIntError> for ParseError {
 ///
 /// fn main() {
 ///     assert!(parse("*/5 * * * *", Utc::now()).is_ok());
+///
+///     // use custom timezone
+///     use chrono_tz::US::Pacific;
+///     assert!(parse("*/5 * * * *", Utc::now().with_timezone(&Pacific)).is_ok());
 /// }
 /// ```
 pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>, ParseError> {
