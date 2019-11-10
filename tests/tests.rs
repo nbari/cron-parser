@@ -59,6 +59,13 @@ macro_rules! parse_tests {
                 let (input, ts, expected) = $value;
                 let dt = Utc.timestamp(ts, 0);
                 assert_eq!(parse(input, dt).unwrap().timestamp(), expected);
+                use chrono_tz::US::Pacific;
+                let dt = Pacific.from_local_datetime(&dt.naive_utc()).unwrap();
+                let expected = Pacific
+                    .from_local_datetime(&Utc.timestamp(expected, 0).naive_utc())
+                    .unwrap()
+                    .timestamp();
+                assert_eq!(parse(input, dt).unwrap().timestamp(), expected);
             }
         )*
     }
@@ -170,4 +177,16 @@ fn test_next_100_iterations() {
         next = parse("0 23 */2 * *", next).unwrap();
     }
     assert_eq!(next.timestamp(), 1590274800);
+}
+
+#[test]
+fn test_timezone() {
+    use chrono_tz::US::Pacific;
+    let utc = Utc.timestamp(1573405861, 0);
+    let pacific_time = utc.with_timezone(&Pacific);
+    let next_pt = parse("*/5 * * * *", pacific_time).unwrap();
+    assert_eq!(next_pt.timestamp(), 1573406100);
+    let next_utc = parse("*/5 * * * *", utc).unwrap();
+    assert_eq!(next_utc.timestamp(), 1573406100);
+    assert_ne!(next_pt.to_string(), next_utc.to_string());
 }

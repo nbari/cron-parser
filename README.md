@@ -40,17 +40,17 @@ Cron table:
 # * * * * * command to execute
 ```
 
-|Field|Required|Allowed values|Allowed special characters|
-|-----|--------|--------------|--------------------------|
-|Minutes| Yes | 0–59 | * , - / |
-|Hours  | Yes | 0–23 | * , - / |
-|Day of month| Yes | 1–31 | * , - / |
-|Month | Yes | 1–12 | * , - / |
-|Day of week | Yes | 0–6 or Sun-Sat | * , - / |
+| Field        | Required | Allowed values | Allowed special characters |
+| ------------ | -------- | -------------- | -------------------------- |
+| Minutes      | Yes      | 0–59           | \* , - /                   |
+| Hours        | Yes      | 0–23           | \* , - /                   |
+| Day of month | Yes      | 1–31           | \* , - /                   |
+| Month        | Yes      | 1–12           | \* , - /                   |
+| Day of week  | Yes      | 0–6 or Sun-Sat | \* , - /                   |
 
 > For the day of the week, when using a Weekday (Sun-Sat) the expression `*/Day` is not supported instead
-use the integer, reasons for this is that for example `*/Wed` = `*/3` translates
-to run every 3rd day of week, this means Sunday, Wednesday, Saturday.
+> use the integer, reasons for this is that for example `*/Wed` = `*/3` translates
+> to run every 3rd day of week, this means Sunday, Wednesday, Saturday.
 
 * `*` any value
 * `,` value list separator
