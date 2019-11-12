@@ -60,7 +60,7 @@ impl TryFrom<&str> for Dow {
             "FRI" => Ok(Dow::Fri),
             "SAT" => Ok(Dow::Sat),
             _ => Err(ParseError::InvalidDow(format!(
-                "Invalid day of week: {}",
+                "invalid day of week: {}",
                 val
             ))),
         }
