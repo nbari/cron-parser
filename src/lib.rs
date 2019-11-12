@@ -1,4 +1,4 @@
-//! Library for parsing cron syntax, returning the next available date.
+//! Library for parsing cron expressions with timezone support.
 //!
 //! Example:
 //! ```
@@ -88,7 +88,7 @@ impl From<num::TryFromIntError> for ParseError {
     }
 }
 
-/// Parse cron syntax
+/// Parse cron expression
 /// ```text
 ///
 /// ┌─────────────────────  minute (0 - 59)
@@ -99,7 +99,7 @@ impl From<num::TryFromIntError> for ParseError {
 /// │ │ │ │ │
 /// │ │ │ │ │
 /// │ │ │ │ │
-/// * * * * * command to execute
+/// * * * * * <command to execute>
 /// ```
 ///
 /// Example

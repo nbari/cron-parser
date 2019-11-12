@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/cron-parser.svg)](https://crates.io/crates/cron-parser)
 [![Build Status](https://travis-ci.org/nbari/cron-parser.svg?branch=master)](https://travis-ci.org/nbari/cron-parser)
 
-Library for parsing cron syntax, returning the next available date.
+Library for parsing cron expressions with timezone support.
 
 Example:
 
@@ -41,7 +41,7 @@ Cron table:
 # │ │ │ │ │
 # │ │ │ │ │
 # │ │ │ │ │
-# * * * * * command to execute
+# * * * * * <command to execute>
 ```
 
 | Field        | Required | Allowed values | Allowed special characters |
@@ -68,7 +68,7 @@ Example of `Cargo.toml`:
 
     [dependencies]
     chrono = "^0.4"
-    cron-parser = "^0.3"
+    cron-parser = "*"
 
 
 Getting the next 10 leap year iterations:
