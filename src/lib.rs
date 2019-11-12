@@ -32,6 +32,7 @@ pub enum ParseError {
     InvalidCron,
     InvalidRange,
     InvalidValue,
+    InvalidDow(String),
     ParseIntError(num::ParseIntError),
     TryFromIntError(num::TryFromIntError),
 }
@@ -47,7 +48,7 @@ enum Dow {
 }
 
 impl TryFrom<&str> for Dow {
-    type Error = ();
+    type Error = ParseError;
 
     fn try_from(val: &str) -> Result<Self, Self::Error> {
         match &*val.to_uppercase() {
@@ -58,7 +59,10 @@ impl TryFrom<&str> for Dow {
             "THU" => Ok(Dow::Thu),
             "FRI" => Ok(Dow::Fri),
             "SAT" => Ok(Dow::Sat),
-            _ => Err(()),
+            _ => Err(ParseError::InvalidDow(format!(
+                "Invalid day of week: {}",
+                val
+            ))),
         }
     }
 }
@@ -69,6 +73,7 @@ impl fmt::Display for ParseError {
             ParseError::InvalidCron => write!(f, "invalid cron"),
             ParseError::InvalidRange => write!(f, "invalid input"),
             ParseError::InvalidValue => write!(f, "invalid value"),
+            ParseError::InvalidDow(ref err) => err.fmt(f),
             ParseError::ParseIntError(ref err) => err.fmt(f),
             ParseError::TryFromIntError(ref err) => err.fmt(f),
         }
@@ -251,7 +256,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
     for field in fields.into_iter() {
         match field {
             day if dow.contains(&field.to_uppercase().as_str()) => {
-                values.insert(Dow::try_from(day).unwrap() as u32);
+                values.insert(Dow::try_from(day)? as u32);
             }
             "*" => {
                 for i in min..=max {
@@ -279,13 +284,13 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 let mut fields: Vec<u32> = Vec::new();
 
                 if dow.contains(&tmp_fields[0].to_uppercase().as_str()) {
-                    fields.push(Dow::try_from(tmp_fields[0]).unwrap() as u32);
+                    fields.push(Dow::try_from(tmp_fields[0])? as u32);
                 } else {
                     fields.push(tmp_fields[0].parse::<u32>()?);
                 };
 
                 if dow.contains(&tmp_fields[1].to_uppercase().as_str()) {
-                    fields.push(Dow::try_from(tmp_fields[1]).unwrap() as u32);
+                    fields.push(Dow::try_from(tmp_fields[1])? as u32);
                 } else {
                     fields.push(tmp_fields[1].parse::<u32>()?);
                 }
