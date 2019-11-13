@@ -1,6 +1,6 @@
 [package]
 name = "cron-parser"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Library for parsing cron expressions with timezone support."
 documentation = "https://docs.rs/cron-parser/latest/cron_parser/"
@@ -20,3 +20,8 @@ chrono = "0.4.9"
 
 [dev-dependencies]
 chrono-tz = "0.5.1"
+criterion = "0.3.0"
+
+[[bench]]
+name = "parse_benchmark"
+harness = false
