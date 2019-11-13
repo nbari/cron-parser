@@ -32,7 +32,6 @@ pub enum ParseError {
     InvalidCron,
     InvalidRange,
     InvalidValue,
-    InvalidDow(String),
     ParseIntError(num::ParseIntError),
     TryFromIntError(num::TryFromIntError),
 }
@@ -48,7 +47,7 @@ enum Dow {
 }
 
 impl TryFrom<&str> for Dow {
-    type Error = ParseError;
+    type Error = ();
 
     fn try_from(val: &str) -> Result<Self, Self::Error> {
         match &*val.to_uppercase() {
@@ -59,10 +58,7 @@ impl TryFrom<&str> for Dow {
             "THU" => Ok(Dow::Thu),
             "FRI" => Ok(Dow::Fri),
             "SAT" => Ok(Dow::Sat),
-            _ => Err(ParseError::InvalidDow(format!(
-                "invalid day of week: {}",
-                val
-            ))),
+            _ => Err(()),
         }
     }
 }
@@ -73,7 +69,6 @@ impl fmt::Display for ParseError {
             ParseError::InvalidCron => write!(f, "invalid cron"),
             ParseError::InvalidRange => write!(f, "invalid input"),
             ParseError::InvalidValue => write!(f, "invalid value"),
-            ParseError::InvalidDow(ref err) => err.fmt(f),
             ParseError::ParseIntError(ref err) => err.fmt(f),
             ParseError::TryFromIntError(ref err) => err.fmt(f),
         }
@@ -207,9 +202,9 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>,
 /// hours   min: 0, max: 23
 /// days    min: 1, max: 31
 /// month   min: 1, max: 12
-/// dweek   min: 0, max: 6 or min: Sun, max Sat
+/// dow     min: 0, max: 6 or min: Sun, max Sat
 ///
-/// Day of week
+/// Day of week (dow):
 ///    Sun = 0
 ///    Mon = 1
 ///    Tue = 2
@@ -250,14 +245,14 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>,
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
     // set of integers
     let mut values = BTreeSet::<u32>::new();
-    let fields: Vec<&str> = field.split(',').filter(|s| !s.is_empty()).collect();
-    let dow = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
+    // split fields by ','
+    let fields: Vec<&str> = field.split(',').filter(|s| !s.is_empty()).collect();
+
+    // iterate over the fields and match against allowed characters
     for field in fields.into_iter() {
         match field {
-            day if dow.contains(&field.to_uppercase().as_str()) => {
-                values.insert(Dow::try_from(day)? as u32);
-            }
+            // any
             "*" => {
                 for i in min..=max {
                     values.insert(i);
@@ -274,7 +269,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                     values.insert(i);
                 }
             }
-            // range of values
+            // range of values, it can have days of week like Wed-Fri
             f if f.contains('-') => {
                 let tmp_fields: Vec<&str> = f.split('-').collect();
                 if tmp_fields.len() != 2 {
@@ -283,14 +278,14 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
 
                 let mut fields: Vec<u32> = Vec::new();
 
-                if dow.contains(&tmp_fields[0].to_uppercase().as_str()) {
-                    fields.push(Dow::try_from(tmp_fields[0])? as u32);
+                if let Ok(dow) = Dow::try_from(tmp_fields[0]) {
+                    fields.push(dow as u32);
                 } else {
                     fields.push(tmp_fields[0].parse::<u32>()?);
                 };
 
-                if dow.contains(&tmp_fields[1].to_uppercase().as_str()) {
-                    fields.push(Dow::try_from(tmp_fields[1])? as u32);
+                if let Ok(dow) = Dow::try_from(tmp_fields[1]) {
+                    fields.push(dow as u32);
                 } else {
                     fields.push(tmp_fields[1].parse::<u32>()?);
                 }
@@ -302,13 +297,19 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                     values.insert(i);
                 }
             }
-            _ => {
-                let f = field.parse::<u32>()?;
-                if f > max {
-                    return Err(ParseError::InvalidValue);
+            // integers or days of week any other will return an error
+            _ => match Dow::try_from(field) {
+                Ok(dow) => {
+                    values.insert(dow as u32);
                 }
-                values.insert(f);
-            }
+                _ => {
+                    let f = field.parse::<u32>()?;
+                    if f > max {
+                        return Err(ParseError::InvalidValue);
+                    }
+                    values.insert(f);
+                }
+            },
         }
     }
     Ok(values)
