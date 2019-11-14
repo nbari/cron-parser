@@ -25,7 +25,7 @@
 //! }
 //! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
-use std::{collections::BTreeSet, convert::TryFrom, error::Error, fmt, num};
+use std::{collections::BTreeSet, error::Error, fmt, num, str::FromStr};
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -46,11 +46,11 @@ enum Dow {
     Sat = 6,
 }
 
-impl TryFrom<&str> for Dow {
-    type Error = ();
+impl FromStr for Dow {
+    type Err = ();
 
-    fn try_from(val: &str) -> Result<Self, Self::Error> {
-        match &*val.to_uppercase() {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match &*s.to_uppercase() {
             "SUN" => Ok(Dow::Sun),
             "MON" => Ok(Dow::Mon),
             "TUE" => Ok(Dow::Tue),
@@ -264,8 +264,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 if f > max {
                     return Err(ParseError::InvalidValue);
                 }
-                let step = usize::try_from(f)?;
-                for i in (min..=max).step_by(step).collect::<Vec<u32>>() {
+                for i in (min..=max).step_by(f as usize).collect::<Vec<u32>>() {
                     values.insert(i);
                 }
             }
@@ -278,13 +277,13 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
 
                 let mut fields: Vec<u32> = Vec::new();
 
-                if let Ok(dow) = Dow::try_from(tmp_fields[0]) {
+                if let Ok(dow) = Dow::from_str(tmp_fields[0]) {
                     fields.push(dow as u32);
                 } else {
                     fields.push(tmp_fields[0].parse::<u32>()?);
                 };
 
-                if let Ok(dow) = Dow::try_from(tmp_fields[1]) {
+                if let Ok(dow) = Dow::from_str(tmp_fields[1]) {
                     fields.push(dow as u32);
                 } else {
                     fields.push(tmp_fields[1].parse::<u32>()?);
@@ -298,7 +297,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 }
             }
             // integers or days of week any other will return an error
-            _ => match Dow::try_from(field) {
+            _ => match Dow::from_str(field) {
                 Ok(dow) => {
                     values.insert(dow as u32);
                 }
