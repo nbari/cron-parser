@@ -10,8 +10,8 @@ os:
 before_script:
   - rustup component add clippy
 script:
-  - cargo clippy
-  - cargo clippy --all-targets --all-features -- -D clippy::pedantic -D clippy::nursery
+    #- cargo clippy --all-targets --all-features -- -D clippy::pedantic -D clippy::nursery
+  - cargo clippy -- -D warnings
   - cargo test
 
 notifications:
