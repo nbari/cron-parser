@@ -1,7 +1,6 @@
 language: rust
 rust:
   - stable
-  - beta
 
 os:
   - linux
@@ -10,8 +9,7 @@ os:
 before_script:
   - rustup component add clippy
 script:
-    #- cargo clippy --all-targets --all-features -- -D clippy::pedantic -D clippy::nursery
-  - cargo clippy -- -D warnings
+  - cargo clippy --all-targets --all-features -- -D clippy::pedantic -D clippy::nursery
   - cargo test
 
 notifications:
