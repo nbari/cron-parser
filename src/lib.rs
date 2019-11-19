@@ -7,21 +7,21 @@
 //! use cron_parser::parse;
 //!
 //! fn main() {
-//!    if let Ok(next) = parse("*/5 * * * *", Utc::now()) {
+//!    if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
 //!         println!("when: {}", next);
 //!    }
 //!
 //!    // passing a custom timestamp
-//!    if let Ok(next) = parse("0 0 29 2 *", Utc.timestamp(1893456000, 0)) {
+//!    if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
 //!         println!("next leap year: {}", next);
 //!         assert_eq!(next.timestamp(), 1961625600);
 //!    }
 //!
-//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
-//!    assert!(parse("* * * * */Fri", Utc::now()).is_err());
+//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
+//!    assert!(parse("* * * * */Fri", &Utc::now()).is_err());
 //!
 //!    // use custom timezone
-//!    assert!(parse("*/5 * * * *", Utc::now().with_timezone(&Lisbon)).is_ok());
+//!    assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
 //! }
 //! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
@@ -51,13 +51,13 @@ impl FromStr for Dow {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match &*s.to_uppercase() {
-            "SUN" => Ok(Dow::Sun),
-            "MON" => Ok(Dow::Mon),
-            "TUE" => Ok(Dow::Tue),
-            "WED" => Ok(Dow::Wed),
-            "THU" => Ok(Dow::Thu),
-            "FRI" => Ok(Dow::Fri),
-            "SAT" => Ok(Dow::Sat),
+            "SUN" => Ok(Self::Sun),
+            "MON" => Ok(Self::Mon),
+            "TUE" => Ok(Self::Tue),
+            "WED" => Ok(Self::Wed),
+            "THU" => Ok(Self::Thu),
+            "FRI" => Ok(Self::Fri),
+            "SAT" => Ok(Self::Sat),
             _ => Err(()),
         }
     }
@@ -66,11 +66,11 @@ impl FromStr for Dow {
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ParseError::InvalidCron => write!(f, "invalid cron"),
-            ParseError::InvalidRange => write!(f, "invalid input"),
-            ParseError::InvalidValue => write!(f, "invalid value"),
-            ParseError::ParseIntError(ref err) => err.fmt(f),
-            ParseError::TryFromIntError(ref err) => err.fmt(f),
+            Self::InvalidCron => write!(f, "invalid cron"),
+            Self::InvalidRange => write!(f, "invalid input"),
+            Self::InvalidValue => write!(f, "invalid value"),
+            Self::ParseIntError(ref err) => err.fmt(f),
+            Self::TryFromIntError(ref err) => err.fmt(f),
         }
     }
 }
@@ -78,13 +78,13 @@ impl Error for ParseError {}
 
 impl From<num::ParseIntError> for ParseError {
     fn from(err: num::ParseIntError) -> Self {
-        ParseError::ParseIntError(err)
+        Self::ParseIntError(err)
     }
 }
 
 impl From<num::TryFromIntError> for ParseError {
     fn from(err: num::TryFromIntError) -> Self {
-        ParseError::TryFromIntError(err)
+        Self::TryFromIntError(err)
     }
 }
 
@@ -108,14 +108,14 @@ impl From<num::TryFromIntError> for ParseError {
 /// use chrono::Utc;
 ///
 /// fn main() {
-///     assert!(parse("*/5 * * * *", Utc::now()).is_ok());
+///     assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
 ///
 ///     // use custom timezone
 ///     use chrono_tz::US::Pacific;
-///     assert!(parse("*/5 * * * *", Utc::now().with_timezone(&Pacific)).is_ok());
+///     assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Pacific)).is_ok());
 /// }
 /// ```
-pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>, ParseError> {
+pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>, ParseError> {
     let tz = dt.timezone();
     // TODO handle unwrap
     let mut next = Utc.from_local_datetime(&dt.naive_local()).unwrap() + Duration::minutes(1);
@@ -146,8 +146,8 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>,
         }
 
         // * * <dom> * *
-        let dom = parse_field(fields[2], 1, 31)?;
-        if !dom.contains(&next.day()) {
+        let do_m = parse_field(fields[2], 1, 31)?;
+        if !do_m.contains(&next.day()) {
             next = next + Duration::days(1);
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
@@ -173,8 +173,8 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>,
         }
 
         // * * * * <dow>
-        let dow = parse_field(fields[4], 0, 6)?;
-        if !dow.contains(&next.weekday().num_days_from_sunday()) {
+        let do_w = parse_field(fields[4], 0, 6)?;
+        if !do_w.contains(&next.weekday().num_days_from_sunday()) {
             next = next + Duration::days(1);
             continue;
         }
@@ -190,7 +190,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: DateTime<TZ>) -> Result<DateTime<TZ>,
     Ok(result)
 }
 
-/// parse_field
+/// `parse_field`
 /// Allowed special characters:
 /// * `*` any value
 /// * `,` value list separator
@@ -250,7 +250,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
     let fields: Vec<&str> = field.split(',').filter(|s| !s.is_empty()).collect();
 
     // iterate over the fields and match against allowed characters
-    for field in fields.into_iter() {
+    for field in fields {
         match field {
             // any
             "*" => {
@@ -297,18 +297,17 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 }
             }
             // integers or days of week any other will return an error
-            _ => match Dow::from_str(field) {
-                Ok(dow) => {
+            _ => {
+                if let Ok(dow) = Dow::from_str(field) {
                     values.insert(dow as u32);
-                }
-                _ => {
+                } else {
                     let f = field.parse::<u32>()?;
                     if f > max {
                         return Err(ParseError::InvalidValue);
                     }
                     values.insert(f);
                 }
-            },
+            }
         }
     }
     Ok(values)

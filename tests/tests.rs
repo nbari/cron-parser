@@ -58,14 +58,14 @@ macro_rules! parse_tests {
             fn $name() {
                 let (input, ts, expected) = $value;
                 let dt = Utc.timestamp(ts, 0);
-                assert_eq!(parse(input, dt).unwrap().timestamp(), expected);
+                assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
                 use chrono_tz::US::Pacific;
                 let dt = Pacific.from_local_datetime(&dt.naive_utc()).unwrap();
                 let expected = Pacific
                     .from_local_datetime(&Utc.timestamp(expected, 0).naive_utc())
                     .unwrap()
                     .timestamp();
-                assert_eq!(parse(input, dt).unwrap().timestamp(), expected);
+                assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
             }
         )*
     }
@@ -151,30 +151,30 @@ fn bad_hour_input_step() {
 
 #[test]
 fn february_30() {
-    assert!(parse("* * 30 2 *", Utc::now()).is_err());
+    assert!(parse("* * 30 2 *", &Utc::now()).is_err());
 }
 
 #[test]
 fn test_parse() {
-    assert!(parse("*/5 * * * *", Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", Utc.timestamp(1573151292, 0)).is_err());
-    assert!(parse("0 0 * * */Wed", Utc::now()).is_err());
-    assert!(parse("0 0 * * */2-5", Utc::now()).is_err());
+    assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
+    assert!(parse("0 0 29 2 5", &Utc.timestamp(1573151292, 0)).is_err());
+    assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
+    assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
 }
 
 #[test]
 fn test_bad_input() {
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", Utc::now()).is_ok());
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &Utc::now()).is_ok());
 }
 
 #[test]
 fn test_next_100_iterations() {
     let now = Utc.timestamp(1573239864, 0);
-    let mut next = parse("0 23 */2 * *", now).unwrap();
+    let mut next = parse("0 23 */2 * *", &now).unwrap();
     assert_eq!(next.timestamp(), 1573340400);
     for _ in 0..100 {
-        next = parse("0 23 */2 * *", next).unwrap();
+        next = parse("0 23 */2 * *", &next).unwrap();
     }
     assert_eq!(next.timestamp(), 1590274800);
 }
@@ -184,9 +184,9 @@ fn test_timezone() {
     use chrono_tz::US::Pacific;
     let utc = Utc.timestamp(1573405861, 0);
     let pacific_time = utc.with_timezone(&Pacific);
-    let next_pt = parse("*/5 * * * *", pacific_time).unwrap();
+    let next_pt = parse("*/5 * * * *", &pacific_time).unwrap();
     assert_eq!(next_pt.timestamp(), 1573406100);
-    let next_utc = parse("*/5 * * * *", utc).unwrap();
+    let next_utc = parse("*/5 * * * *", &utc).unwrap();
     assert_eq!(next_utc.timestamp(), 1573406100);
     assert_ne!(next_pt.to_string(), next_utc.to_string());
 }
@@ -197,9 +197,9 @@ fn test_timezone_dst() {
     use chrono_tz::America::Chicago;
     let utc = Utc.timestamp(1541309400, 0);
     let cst = utc.with_timezone(&Chicago);
-    let mut next = parse("*/15 * * * *", cst).unwrap();
+    let mut next = parse("*/15 * * * *", &cst).unwrap();
     for _ in 0..10 {
-        next = parse("*/15 * * * *", next).unwrap();
+        next = parse("*/15 * * * *", &next).unwrap();
     }
     assert_eq!(next.timestamp(), 1541322900);
 }

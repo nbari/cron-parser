@@ -12,21 +12,21 @@ Example:
     use cron_parser::parse;
 
     fn main() {
-       if let Ok(next) = parse("*/5 * * * *", Utc::now()) {
+       if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
             println!("when: {}", next);
        }
 
        // passing a custom timestamp
-       if let Ok(next) = parse("0 0 29 2 *", Utc.timestamp(1893456000, 0)) {
+       if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
             println!("next leap year: {}", next);
             assert_eq!(next.timestamp(), 1961625600);
        }
 
-       assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", Utc::now()).is_ok());
-       assert!(parse("* * * * */Fri", Utc::now()).is_err());
+       assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
+       assert!(parse("* * * * */Fri", &Utc::now()).is_err());
 
        // use custom timezone
-       assert!(parse("*/5 * * * *", Utc::now().with_timezone(&Lisbon)).is_ok());
+       assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
     }
 
 
@@ -79,9 +79,9 @@ Getting the next 10 leap year iterations:
     fn main() {
         let now = Utc::now();
         let mut crons = Vec::<DateTime<Utc>>::new();
-        let mut next = parse("0 0 29 2 *", now).unwrap();
+        let mut next = parse("0 0 29 2 *", &now).unwrap();
         for _ in 0..10 {
-            next = parse("0 0 29 2 *", next).unwrap();
+            next = parse("0 0 29 2 *", &next).unwrap();
             crons.push(next);
         }
         for x in crons {
