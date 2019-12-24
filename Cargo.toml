@@ -1,10 +1,10 @@
 [package]
 name = "cron-parser"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Library for parsing cron expressions with timezone support."
 documentation = "https://docs.rs/cron-parser/latest/cron_parser/"
-homepage = "https://docs.rs/cron-parser/latest/cron_parser/"
+homepage = "https://docs.rs/cron-parser"
 repository = "https://github.com/nbari/cron-parser"
 readme = "README.md"
 keywords = ["cron", "crontab", "parser"]
