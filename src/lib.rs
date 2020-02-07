@@ -6,23 +6,21 @@
 //! use chrono_tz::Europe::Lisbon;
 //! use cron_parser::parse;
 //!
-//! fn main() {
-//!    if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
-//!         println!("when: {}", next);
-//!    }
-//!
-//!    // passing a custom timestamp
-//!    if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
-//!         println!("next leap year: {}", next);
-//!         assert_eq!(next.timestamp(), 1961625600);
-//!    }
-//!
-//!    assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
-//!    assert!(parse("* * * * */Fri", &Utc::now()).is_err());
-//!
-//!    // use custom timezone
-//!    assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
+//! if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
+//!      println!("when: {}", next);
 //! }
+//!
+//! // passing a custom timestamp
+//! if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
+//!      println!("next leap year: {}", next);
+//!      assert_eq!(next.timestamp(), 1961625600);
+//! }
+//!
+//! assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
+//! assert!(parse("* * * * */Fri", &Utc::now()).is_err());
+//!
+//! // use custom timezone
+//! assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
 //! ```
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use std::{collections::BTreeSet, error::Error, fmt, num, str::FromStr};
@@ -109,14 +107,14 @@ impl From<num::TryFromIntError> for ParseError {
 /// use cron_parser::parse;
 /// use chrono::Utc;
 ///
-/// fn main() {
-///     assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
+/// assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
 ///
-///     // use custom timezone
-///     use chrono_tz::US::Pacific;
-///     assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Pacific)).is_ok());
-/// }
+/// // use custom timezone
+/// use chrono_tz::US::Pacific;
+/// assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Pacific)).is_ok());
 /// ```
+/// # Errors
+/// [`ParseError`](enum.ParseError.html)
 pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>, ParseError> {
     let tz = dt.timezone();
     // TODO handle unwrap
@@ -226,24 +224,24 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
 /// use cron_parser::parse_field;
 /// use std::collections::BTreeSet;
 ///
-/// fn main() {
-///      // every 3 months
-///      assert_eq!(parse_field("*/3", 1, 12).unwrap(),
-///      BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect()));
+///  // every 3 months
+///  assert_eq!(parse_field("*/3", 1, 12).unwrap(),
+///  BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect()));
 ///
-///      // day 31
-///      assert_eq!(parse_field("31", 1, 31).unwrap(),
-///      BTreeSet::<u32>::from([31].iter().cloned().collect()));
+///  // day 31
+///  assert_eq!(parse_field("31", 1, 31).unwrap(),
+///  BTreeSet::<u32>::from([31].iter().cloned().collect()));
 ///
-///      // every minute from 40 through 50
-///      assert_eq!(parse_field("40-50", 0, 59).unwrap(),
-///      BTreeSet::<u32>::from([40,41,42,43,44,45,46,47,48,49,50].iter().cloned().collect()));
+///  // every minute from 40 through 50
+///  assert_eq!(parse_field("40-50", 0, 59).unwrap(),
+///  BTreeSet::<u32>::from([40,41,42,43,44,45,46,47,48,49,50].iter().cloned().collect()));
 ///
-///      // at hour 3,15,23
-///      assert_eq!(parse_field("15,3,23", 0, 23).unwrap(),
-///      BTreeSet::<u32>::from([3,15,23].iter().cloned().collect()));
-/// }
+///  // at hour 3,15,23
+///  assert_eq!(parse_field("15,3,23", 0, 23).unwrap(),
+///  BTreeSet::<u32>::from([3,15,23].iter().cloned().collect()));
 /// ```
+/// # Errors
+/// [`ParseError`](enum.ParseError.html)
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
     // set of integers
     let mut values = BTreeSet::<u32>::new();
