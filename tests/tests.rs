@@ -83,39 +83,39 @@ macro_rules! parse_tests {
 //     println!("{} {}", next, next.timestamp());
 // }
 parse_tests! {
-    any_minute: ("* * * * *", 1572969395, 1572969420),
-    any_minute2: ("*/5,* * * * *", 1572969395, 1572969420),
-    every_5_mintues: ("*/5 * * * *", 1572969395, 1572969600),
-    on_minute_5: ("5 * * * *", 1572969395, 1572969900),
-    every_minute_every_2nd_hour: ("* */2 * * *", 1572969395, 1572969600),
-    every_minute_in_october: ("* * * 10 *", 1572969395, 1601510400),
-    every_minute_on_day_4_in_november: ("* * 4 11 *", 1572969395, 1604448000),
-    daily_2am: ("0 2 * * *", 1572969395, 1573005600),
-    twice_a_day_5_17: ("0 5,17 * * *", 1572969395, 1572973200),
-    every_2nd_minute_every_hour_from_1_to_4_and_15:("*/2 1-4,15 * * *", 1572969395,1572969480),
-    febraury_30_1: ("* * 30 */2 *", 1572969395, 1575072000),
-    febraury_30_2: ("* * 30 * *", 1548892800, 1553904000),
-    febraury_29: ("* * 29 2 *", 1583020800, 1709164800),
-    day_31: ("* 5 31 * *", 1548936000, 1554008400),
-    day_31_ever2months: ("* 5 31 */3 *", 1548936000, 1564549200),
-    leap_year: ("* * 28-31 2 *", 1583020800, 1614470400),
-    every_dow_0: ("0 0 * * 0", 1573151292, 1573344000),
-    every_dow_1: ("0 0 * * 1", 1573151292, 1573430400),
-    every_dow_2: ("0 0 * * 2", 1573151292, 1573516800),
-    every_dow_3: ("0 0 * * 3", 1573151292, 1573603200),
-    every_dow_4: ("0 0 * * 4", 1573151292, 1573689600),
-    every_dow_5: ("0 0 * * 5", 1573151292, 1573171200),
-    every_dow_6: ("0 0 * * 6", 1573151292, 1573257600),
-    every_dow_sun: ("0 0 * * Sun", 1573151292, 1573344000),
-    every_dow_mon: ("0 0 * * Mon", 1573151292, 1573430400),
-    every_dow_tue: ("0 0 * * Tue", 1573151292, 1573516800),
-    every_dow_wed: ("0 0 * * Wed", 1573151292, 1573603200),
-    every_dow_thu: ("0 0 * * Thu", 1573151292, 1573689600),
-    every_dow_fri: ("0 0 * * Fri", 1573151292, 1573171200),
-    every_dow_sat: ("0 0 * * Sat", 1573151292, 1573257600),
-    every_dow_wed_and_fri: ("0 0 * * Wed,Fri", 1573151292, 1573171200),
-    dow_feb: ("0 0 29 2 6", 1573151292, 1582934400),
-    every_dow_wed_2_fri: ("0 0 * * Wed-Fri", 1573151292, 1573171200),
+    any_minute: ("* * * * *", 1_572_969_395, 1_572_969_420),
+    any_minute2: ("*/5,* * * * *", 1_572_969_395, 1_572_969_420),
+    every_5_mintues: ("*/5 * * * *", 1_572_969_395, 1_572_969_600),
+    on_minute_5: ("5 * * * *", 1_572_969_395, 1_572_969_900),
+    every_minute_every_2nd_hour: ("* */2 * * *", 1_572_969_395, 1_572_969_600),
+    every_minute_in_october: ("* * * 10 *", 1_572_969_395, 1_601_510_400),
+    every_minute_on_day_4_in_november: ("* * 4 11 *", 1_572_969_395, 1_604_448_000),
+    daily_2am: ("0 2 * * *", 1_572_969_395, 1_573_005_600),
+    twice_a_day_5_17: ("0 5,17 * * *", 1_572_969_395, 1_572_973_200),
+    every_2nd_minute_every_hour_from_1_to_4_and_15:("*/2 1-4,15 * * *", 1_572_969_395,1_572_969_480),
+    febraury_30_1: ("* * 30 */2 *", 1_572_969_395, 1_575_072_000),
+    febraury_30_2: ("* * 30 * *", 1_548_892_800, 1_553_904_000),
+    febraury_29: ("* * 29 2 *", 1_583_020_800, 1_709_164_800),
+    day_31: ("* 5 31 * *", 1_548_936_000, 1_554_008_400),
+    day_31_ever2months: ("* 5 31 */3 *", 1_548_936_000, 1_564_549_200),
+    leap_year: ("* * 28-31 2 *", 1_583_020_800, 1_614_470_400),
+    every_dow_0: ("0 0 * * 0", 1_573_151_292, 1_573_344_000),
+    every_dow_1: ("0 0 * * 1", 1_573_151_292, 1_573_430_400),
+    every_dow_2: ("0 0 * * 2", 1_573_151_292, 1_573_516_800),
+    every_dow_3: ("0 0 * * 3", 1_573_151_292, 1_573_603_200),
+    every_dow_4: ("0 0 * * 4", 1_573_151_292, 1_573_689_600),
+    every_dow_5: ("0 0 * * 5", 1_573_151_292, 1_573_171_200),
+    every_dow_6: ("0 0 * * 6", 1_573_151_292, 1_573_257_600),
+    every_dow_sun: ("0 0 * * Sun", 1_573_151_292, 1_573_344_000),
+    every_dow_mon: ("0 0 * * Mon", 1_573_151_292, 1_573_430_400),
+    every_dow_tue: ("0 0 * * Tue", 1_573_151_292, 1_573_516_800),
+    every_dow_wed: ("0 0 * * Wed", 1_573_151_292, 1_573_603_200),
+    every_dow_thu: ("0 0 * * Thu", 1_573_151_292, 1_573_689_600),
+    every_dow_fri: ("0 0 * * Fri", 1_573_151_292, 1_573_171_200),
+    every_dow_sat: ("0 0 * * Sat", 1_573_151_292, 1_573_257_600),
+    every_dow_wed_and_fri: ("0 0 * * Wed,Fri", 1_573_151_292, 1_573_171_200),
+    dow_feb: ("0 0 29 2 6", 1_573_151_292, 1_582_934_400),
+    every_dow_wed_2_fri: ("0 0 * * Wed-Fri", 1_573_151_292, 1_573_171_200),
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn february_30() {
 #[test]
 fn test_parse() {
     assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", &Utc.timestamp(1573151292, 0)).is_err());
+    assert!(parse("0 0 29 2 5", &Utc.timestamp(1_573_151_292, 0)).is_err());
     assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
     assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
 }
@@ -170,36 +170,39 @@ fn test_bad_input() {
 
 #[test]
 fn test_next_100_iterations() {
-    let now = Utc.timestamp(1573239864, 0);
+    let now = Utc.timestamp(1_573_239_864, 0);
     let mut next = parse("0 23 */2 * *", &now).unwrap();
-    assert_eq!(next.timestamp(), 1573340400);
+    assert_eq!(next.timestamp(), 1_573_340_400);
     for _ in 0..100 {
         next = parse("0 23 */2 * *", &next).unwrap();
     }
-    assert_eq!(next.timestamp(), 1590274800);
+    assert_eq!(next.timestamp(), 1_590_274_800);
 }
 
 #[test]
 fn test_timezone() {
     use chrono_tz::US::Pacific;
-    let utc = Utc.timestamp(1573405861, 0);
+    let utc = Utc.timestamp(1_573_405_861, 0);
     let pacific_time = utc.with_timezone(&Pacific);
     let next_pt = parse("*/5 * * * *", &pacific_time).unwrap();
-    assert_eq!(next_pt.timestamp(), 1573406100);
+    assert_eq!(next_pt.timestamp(), 1_573_406_100);
     let next_utc = parse("*/5 * * * *", &utc).unwrap();
-    assert_eq!(next_utc.timestamp(), 1573406100);
+    assert_eq!(next_utc.timestamp(), 1_573_406_100);
     assert_ne!(next_pt.to_string(), next_utc.to_string());
 }
 
 #[test]
 fn test_timezone_dst() {
-    // 2018-11-04 1:30
+    // 2_018-11-04 1:30
     use chrono_tz::America::Chicago;
-    let utc = Utc.timestamp(1541309400, 0);
+    let utc = Utc.timestamp(1_541_309_400, 0);
     let cst = utc.with_timezone(&Chicago);
     let mut next = parse("*/15 * * * *", &cst).unwrap();
     for _ in 0..10 {
         next = parse("*/15 * * * *", &next).unwrap();
     }
-    assert_eq!(next.timestamp(), 1541322900);
+    assert_eq!(next.timestamp(), 1_541_322_900);
 }
+
+// 1541322900 -> 1_541_322_900
+// vim :%s/\(\d\)\(\(\d\d\d\)\+\d\@!\)\@=/\1_/g
