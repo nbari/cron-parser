@@ -1,4 +1,5 @@
 use chrono::{TimeZone, Utc};
+use chrono_tz::{America::Chicago, US::Pacific};
 use cron_parser::{parse, parse_field};
 use std::collections::BTreeSet;
 
@@ -59,7 +60,6 @@ macro_rules! parse_tests {
                 let (input, ts, expected) = $value;
                 let dt = Utc.timestamp(ts, 0);
                 assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
-                use chrono_tz::US::Pacific;
                 let dt = Pacific.from_local_datetime(&dt.naive_utc()).unwrap();
                 let expected = Pacific
                     .from_local_datetime(&Utc.timestamp(expected, 0).naive_utc())
@@ -181,7 +181,6 @@ fn test_next_100_iterations() {
 
 #[test]
 fn test_timezone() {
-    use chrono_tz::US::Pacific;
     let utc = Utc.timestamp(1_573_405_861, 0);
     let pacific_time = utc.with_timezone(&Pacific);
     let next_pt = parse("*/5 * * * *", &pacific_time).unwrap();
@@ -194,7 +193,6 @@ fn test_timezone() {
 #[test]
 fn test_timezone_dst() {
     // 2_018-11-04 1:30
-    use chrono_tz::America::Chicago;
     let utc = Utc.timestamp(1_541_309_400, 0);
     let cst = utc.with_timezone(&Chicago);
     let mut next = parse("*/15 * * * *", &cst).unwrap();

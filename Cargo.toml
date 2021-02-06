@@ -1,6 +1,6 @@
 [package]
 name = "cron-parser"
-version = "0.7.7"
+version = "0.7.8"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Library for parsing cron expressions with timezone support."
 documentation = "https://docs.rs/cron-parser/latest/cron_parser/"
@@ -13,14 +13,14 @@ license = "BSD-3-Clause"
 edition = "2018"
 
 [badges]
-travis-ci = { repository = "nbari/cron-parser", branch = "master" }
+github-actions = { repository = "nbari/cron-parser", workflow = "ci" }
 
 [dependencies]
 chrono = "0.4.19"
 
 [dev-dependencies]
 chrono-tz = "0.5.3"
-criterion = "0.3.3"
+criterion = "0.3.4"
 
 [[bench]]
 name = "parse_benchmark"

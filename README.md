@@ -1,7 +1,7 @@
 # cron parser
 
 [![crates.io](https://img.shields.io/crates/v/cron-parser.svg)](https://crates.io/crates/cron-parser)
-[![Build Status](https://travis-ci.org/nbari/cron-parser.svg?branch=master)](https://travis-ci.org/nbari/cron-parser)
+[![Build Status](https://github.com/nbari/cron-parser/workflows/ci/badge.svg)](https://github.com/nbari/cron-parser/workflows/ci/)
 [![docs](https://docs.rs/cron-parser/badge.svg)](https://docs.rs/cron-parser)
 
 Library for parsing cron expressions with timezone support.
