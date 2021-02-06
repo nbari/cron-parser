@@ -13,7 +13,7 @@ license = "BSD-3-Clause"
 edition = "2018"
 
 [badges]
-github-actions = { repository = "nbari/cron-parser", workflow = "ci" }
+travis-ci = { repository = "nbari/cron-parser", branch = "master" }
 
 [dependencies]
 chrono = "0.4.19"
