@@ -1,7 +1,10 @@
-use chrono::{TimeZone, Utc};
+extern crate alloc;
+
+use chrono::{DateTime, TimeZone, Utc};
 use chrono_tz::{America::Chicago, US::Pacific};
 use cron_parser::{parse, parse_field};
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
+use core::str::FromStr;
 
 macro_rules! parse_field_tests {
     ($($name:ident: $value:expr,)*) => {
@@ -151,21 +154,21 @@ fn bad_hour_input_step() {
 
 #[test]
 fn february_30() {
-    assert!(parse("* * 30 2 *", &Utc::now()).is_err());
+    assert!(parse("* * 30 2 *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_err());
 }
 
 #[test]
 fn test_parse() {
-    assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
+    assert!(parse("*/5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_ok());
     assert!(parse("0 0 29 2 5", &Utc.timestamp(1_573_151_292, 0)).is_err());
-    assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
-    assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
+    assert!(parse("0 0 * * */Wed", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_err());
+    assert!(parse("0 0 * * */2-5", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_err());
 }
 
 #[test]
 fn test_bad_input() {
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &Utc::now()).is_ok());
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_ok());
 }
 
 #[test]

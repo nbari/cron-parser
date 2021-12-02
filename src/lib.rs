@@ -2,11 +2,12 @@
 //!
 //! Example:
 //! ```
-//! use chrono::{TimeZone, Utc};
+//! use chrono::{DateTime, TimeZone, Utc};
 //! use chrono_tz::Europe::Lisbon;
 //! use cron_parser::parse;
+//! use core::str::FromStr;
 //!
-//! if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
+//! if let Ok(next) = parse("*/5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()) {
 //!      println!("when: {}", next);
 //! }
 //!
@@ -16,14 +17,25 @@
 //!      assert_eq!(next.timestamp(), 1961625600);
 //! }
 //!
-//! assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
-//! assert!(parse("* * * * */Fri", &Utc::now()).is_err());
+//! assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_ok());
+//! assert!(parse("* * * * */Fri", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_err());
 //!
 //! // use custom timezone
-//! assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
+//! assert!(parse("*/5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap().with_timezone(&Lisbon)).is_ok());
 //! ```
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
-use std::{collections::BTreeSet, error::Error, fmt, num, str::FromStr};
+#[cfg(feature = "std")]
+use std::error::Error;
+use alloc::collections::BTreeSet;
+use alloc::vec::Vec;
+use core::fmt;
+use core::num;
+use core::str::FromStr;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -72,6 +84,8 @@ impl fmt::Display for ParseError {
         }
     }
 }
+
+#[cfg(feature = "std")]
 impl Error for ParseError {}
 
 impl From<num::ParseIntError> for ParseError {
@@ -105,13 +119,14 @@ impl From<num::TryFromIntError> for ParseError {
 /// Example
 /// ```
 /// use cron_parser::parse;
-/// use chrono::Utc;
+/// use chrono::{DateTime, Utc};
+/// use core::str::FromStr;
 ///
-/// assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
+/// assert!(parse("*/5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap()).is_ok());
 ///
 /// // use custom timezone
 /// use chrono_tz::US::Pacific;
-/// assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Pacific)).is_ok());
+/// assert!(parse("*/5 * * * *", &DateTime::<Utc>::from_str("2021-12-02T14:02:29+0000").unwrap().with_timezone(&Pacific)).is_ok());
 /// ```
 /// # Errors
 /// [`ParseError`](enum.ParseError.html)

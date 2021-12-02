@@ -15,12 +15,18 @@ edition = "2018"
 [badges]
 travis-ci = { repository = "nbari/cron-parser", branch = "master" }
 
-[dependencies]
-chrono = "0.4.19"
+[dependencies.chrono]
+version = "0.4.19"
+default-features = false
+features = ["alloc"]
 
 [dev-dependencies]
 chrono-tz = "0.5.3"
 criterion = "0.3.4"
+
+[features]
+default = ["std"]
+std = []
 
 [[bench]]
 name = "parse_benchmark"
