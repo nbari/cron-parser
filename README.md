@@ -102,3 +102,13 @@ It will print something like:
     2052-02-29 00:00:00 UTC - 2592777600
     2056-02-29 00:00:00 UTC - 2719008000
     2060-02-29 00:00:00 UTC - 2845238400
+
+## `#![no_std]` support
+This crate includes the ability to operate in `no_std` environments. To achieve this, disable the default features:
+```
+[dependencies.cron-parser]
+version = "*"
+default-features = false
+```
+
+This might be required for some embedded systems that have no access to the `std` crate but use `alloc` and require some kind of scheduling functionality that is derived from a well-known format.
