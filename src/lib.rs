@@ -148,7 +148,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         // * * <dom> * *
         let do_m = parse_field(fields[2], 1, 31)?;
         if !do_m.contains(&next.day()) {
-            next = next + Duration::days(1);
+            next += Duration::days(1);
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
                 .and_hms(0, 0, 0);
@@ -158,7 +158,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         // * <hour> * * *
         let hour = parse_field(fields[1], 0, 23)?;
         if !hour.contains(&next.hour()) {
-            next = next + Duration::hours(1);
+            next += Duration::hours(1);
             next = Utc
                 .ymd(next.year(), next.month(), next.day())
                 .and_hms(next.hour(), 0, 0);
@@ -168,14 +168,14 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         // <minute> * * * *
         let minute = parse_field(fields[0], 0, 59)?;
         if !minute.contains(&next.minute()) {
-            next = next + Duration::minutes(1);
+            next += Duration::minutes(1);
             continue;
         }
 
         // * * * * <dow>
         let do_w = parse_field(fields[4], 0, 6)?;
         if !do_w.contains(&next.weekday().num_days_from_sunday()) {
-            next = next + Duration::days(1);
+            next += Duration::days(1);
             continue;
         }
 
@@ -184,7 +184,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
             break dt;
         }
 
-        next = next + Duration::minutes(1);
+        next += Duration::minutes(1);
     };
 
     Ok(result)
@@ -226,19 +226,19 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
 ///
 ///  // every 3 months
 ///  assert_eq!(parse_field("*/3", 1, 12).unwrap(),
-///  BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect()));
+///  BTreeSet::<u32>::from([1,4,7,10].iter().cloned().collect::<BTreeSet<u32>>()));
 ///
 ///  // day 31
 ///  assert_eq!(parse_field("31", 1, 31).unwrap(),
-///  BTreeSet::<u32>::from([31].iter().cloned().collect()));
+///  BTreeSet::<u32>::from([31].iter().cloned().collect::<BTreeSet<u32>>()));
 ///
 ///  // every minute from 40 through 50
 ///  assert_eq!(parse_field("40-50", 0, 59).unwrap(),
-///  BTreeSet::<u32>::from([40,41,42,43,44,45,46,47,48,49,50].iter().cloned().collect()));
+///  BTreeSet::<u32>::from([40,41,42,43,44,45,46,47,48,49,50].iter().cloned().collect::<BTreeSet<u32>>()));
 ///
 ///  // at hour 3,15,23
 ///  assert_eq!(parse_field("15,3,23", 0, 23).unwrap(),
-///  BTreeSet::<u32>::from([3,15,23].iter().cloned().collect()));
+///  BTreeSet::<u32>::from([3,15,23].iter().cloned().collect::<BTreeSet<u32>>()));
 /// ```
 /// # Errors
 /// [`ParseError`](enum.ParseError.html)
