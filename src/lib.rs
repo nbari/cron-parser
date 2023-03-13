@@ -11,7 +11,7 @@
 //! }
 //!
 //! // passing a custom timestamp
-//! if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
+//! if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp_opt(1893456000, 0).unwrap()) {
 //!      println!("next leap year: {}", next);
 //!      assert_eq!(next.timestamp(), 1961625600);
 //! }
@@ -125,8 +125,15 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
     }
 
     next = Utc
-        .ymd(next.year(), next.month(), next.day())
-        .and_hms(next.hour(), next.minute(), 0);
+        .with_ymd_and_hms(
+            next.year(),
+            next.month(),
+            next.day(),
+            next.hour(),
+            next.minute(),
+            0,
+        )
+        .unwrap();
 
     let result = loop {
         // only try until next leap year
@@ -138,9 +145,13 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         let month = parse_field(fields[3], 1, 12)?;
         if !month.contains(&next.month()) {
             if next.month() == 12 {
-                next = Utc.ymd(next.year() + 1, 1, 1).and_hms(0, 0, 0);
+                next = Utc
+                    .with_ymd_and_hms(next.year() + 1, 1, 1, 0, 0, 0)
+                    .unwrap();
             } else {
-                next = Utc.ymd(next.year(), next.month() + 1, 1).and_hms(0, 0, 0);
+                next = Utc
+                    .with_ymd_and_hms(next.year(), next.month() + 1, 1, 0, 0, 0)
+                    .unwrap();
             }
             continue;
         }
@@ -150,8 +161,8 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         if !do_m.contains(&next.day()) {
             next += Duration::days(1);
             next = Utc
-                .ymd(next.year(), next.month(), next.day())
-                .and_hms(0, 0, 0);
+                .with_ymd_and_hms(next.year(), next.month(), next.day(), 0, 0, 0)
+                .unwrap();
             continue;
         }
 
@@ -160,8 +171,8 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         if !hour.contains(&next.hour()) {
             next += Duration::hours(1);
             next = Utc
-                .ymd(next.year(), next.month(), next.day())
-                .and_hms(next.hour(), 0, 0);
+                .with_ymd_and_hms(next.year(), next.month(), next.day(), next.hour(), 0, 0)
+                .unwrap();
             continue;
         }
 

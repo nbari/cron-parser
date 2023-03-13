@@ -58,11 +58,11 @@ macro_rules! parse_tests {
             #[test]
             fn $name() {
                 let (input, ts, expected) = $value;
-                let dt = Utc.timestamp(ts, 0);
+                let dt = Utc.timestamp_opt(ts, 0).unwrap();
                 assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
                 let dt = Pacific.from_local_datetime(&dt.naive_utc()).unwrap();
                 let expected = Pacific
-                    .from_local_datetime(&Utc.timestamp(expected, 0).naive_utc())
+                    .from_local_datetime(&Utc.timestamp_opt(expected, 0).unwrap().naive_utc())
                     .unwrap()
                     .timestamp();
                 assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
@@ -157,7 +157,7 @@ fn february_30() {
 #[test]
 fn test_parse() {
     assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", &Utc.timestamp(1_573_151_292, 0)).is_err());
+    assert!(parse("0 0 29 2 5", &Utc.timestamp_opt(1_573_151_292, 0).unwrap()).is_err());
     assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
     assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
 }
@@ -170,7 +170,7 @@ fn test_bad_input() {
 
 #[test]
 fn test_next_100_iterations() {
-    let now = Utc.timestamp(1_573_239_864, 0);
+    let now = Utc.timestamp_opt(1_573_239_864, 0).unwrap();
     let mut next = parse("0 23 */2 * *", &now).unwrap();
     assert_eq!(next.timestamp(), 1_573_340_400);
     for _ in 0..100 {
@@ -181,7 +181,7 @@ fn test_next_100_iterations() {
 
 #[test]
 fn test_timezone() {
-    let utc = Utc.timestamp(1_573_405_861, 0);
+    let utc = Utc.timestamp_opt(1_573_405_861, 0).unwrap();
     let pacific_time = utc.with_timezone(&Pacific);
     let next_pt = parse("*/5 * * * *", &pacific_time).unwrap();
     assert_eq!(next_pt.timestamp(), 1_573_406_100);
@@ -193,7 +193,7 @@ fn test_timezone() {
 #[test]
 fn test_timezone_dst() {
     // 2_018-11-04 1:30
-    let utc = Utc.timestamp(1_541_309_400, 0);
+    let utc = Utc.timestamp_opt(1_541_309_400, 0).unwrap();
     let cst = utc.with_timezone(&Chicago);
     let mut next = parse("*/15 * * * *", &cst).unwrap();
     for _ in 0..10 {
