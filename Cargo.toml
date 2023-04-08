@@ -16,9 +16,10 @@ edition = "2018"
 travis-ci = { repository = "nbari/cron-parser", branch = "master" }
 
 [dependencies]
-chrono = "0.4.24"
+chrono = {version="0.4.24", default-features=false}
 
 [dev-dependencies]
+chrono = {version="0.4.24", default-features=false, features=["clock"]}
 chrono-tz = "0.8.1"
 criterion = "0.4.0"
 
