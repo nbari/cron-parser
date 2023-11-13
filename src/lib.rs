@@ -275,7 +275,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 if f > max {
                     return Err(ParseError::InvalidValue);
                 }
-                for i in (min..=max).step_by(f as usize).collect::<Vec<u32>>() {
+                for i in (min..=max).step_by(f as usize) {
                     values.insert(i);
                 }
             }
@@ -303,7 +303,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                 if fields[0] > fields[1] || fields[1] > max {
                     return Err(ParseError::InvalidRange);
                 }
-                for i in (fields[0]..=fields[1]).collect::<Vec<u32>>() {
+                for i in fields[0]..=fields[1] {
                     values.insert(i);
                 }
             }
