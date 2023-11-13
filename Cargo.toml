@@ -12,9 +12,6 @@ categories = ["parsing"]
 license = "BSD-3-Clause"
 edition = "2021"
 
-[badges]
-travis-ci = { repository = "nbari/cron-parser", branch = "master" }
-
 [dependencies]
 chrono = { version = "0.4.31", default-features = false }
 
