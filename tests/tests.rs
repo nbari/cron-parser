@@ -202,5 +202,15 @@ fn test_timezone_dst() {
     assert_eq!(next.timestamp(), 1_541_322_900);
 }
 
+#[test]
+// check if input filds are < 5
+fn parse_needs_5_fields() {
+    assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
+    assert!(parse("*/5 * * *", &Utc::now()).is_err());
+    assert!(parse("*/5 * *", &Utc::now()).is_err());
+    assert!(parse("*/5 *", &Utc::now()).is_err());
+    assert!(parse("*/5", &Utc::now()).is_err());
+}
+
 // 1541322900 -> 1_541_322_900
 // vim :%s/\(\d\)\(\(\d\d\d\)\+\d\@!\)\@=/\1_/g

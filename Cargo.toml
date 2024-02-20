@@ -1,6 +1,6 @@
 [package]
 name = "cron-parser"
-version = "0.8.1"
+version = "0.9.0"
 authors = ["Nicolas Embriz <nbari@tequila.io>"]
 description = "Library for parsing cron expressions with timezone support."
 documentation = "https://docs.rs/cron-parser/latest/cron_parser/"
@@ -13,12 +13,12 @@ license = "BSD-3-Clause"
 edition = "2021"
 
 [dependencies]
-chrono = { version = "0.4.31", default-features = false }
+chrono = { version = "0.4", default-features = false }
 
 [dev-dependencies]
-chrono = {version="0.4.31", default-features=false, features=["clock"]}
-chrono-tz = "0.8.4"
-criterion = "0.5.1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+chrono-tz = "0.8"
+criterion = "0.5"
 
 [[bench]]
 name = "parse_benchmark"

@@ -120,7 +120,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
     // TODO handle unwrap
     let mut next = Utc.from_local_datetime(&dt.naive_local()).unwrap() + Duration::minutes(1);
     let fields: Vec<&str> = cron.split_whitespace().collect();
-    if fields.len() > 5 {
+    if fields.len() != 5 {
         return Err(ParseError::InvalidCron);
     }
 
