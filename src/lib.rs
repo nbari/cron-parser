@@ -10,6 +10,11 @@
 //!      println!("when: {}", next);
 //! }
 //!
+//! // every 6 hours starting at 1:00
+//! if let Ok(next) = parse("0 1/6 * * *", &Utc::now()) {
+//!      println!("when: {}", next);
+//! }
+//!
 //! // passing a custom timestamp
 //! if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp_opt(1893456000, 0).unwrap()) {
 //!      println!("next leap year: {}", next);
