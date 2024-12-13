@@ -32,6 +32,7 @@ pub enum ParseError {
     InvalidValue,
     ParseIntError(num::ParseIntError),
     TryFromIntError(num::TryFromIntError),
+    InvalidTimezone,
 }
 
 enum Dow {
@@ -69,9 +70,11 @@ impl fmt::Display for ParseError {
             Self::InvalidValue => write!(f, "invalid value"),
             Self::ParseIntError(ref err) => err.fmt(f),
             Self::TryFromIntError(ref err) => err.fmt(f),
+            Self::InvalidTimezone => write!(f, "invalid timezone"),
         }
     }
 }
+
 impl Error for ParseError {}
 
 impl From<num::ParseIntError> for ParseError {
@@ -117,23 +120,31 @@ impl From<num::TryFromIntError> for ParseError {
 /// [`ParseError`](enum.ParseError.html)
 pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>, ParseError> {
     let tz = dt.timezone();
-    // TODO handle unwrap
-    let mut next = Utc.from_local_datetime(&dt.naive_local()).unwrap() + Duration::minutes(1);
+
     let fields: Vec<&str> = cron.split_whitespace().collect();
+
     if fields.len() != 5 {
         return Err(ParseError::InvalidCron);
     }
 
-    next = Utc
-        .with_ymd_and_hms(
-            next.year(),
-            next.month(),
-            next.day(),
-            next.hour(),
-            next.minute(),
-            0,
-        )
-        .unwrap();
+    let mut next = match Utc.from_local_datetime(&dt.naive_local()) {
+        chrono::LocalResult::Single(datetime) => datetime + Duration::minutes(1),
+        chrono::LocalResult::Ambiguous(earlier, _later) => earlier + Duration::minutes(1),
+        chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
+    };
+
+    next = match Utc.with_ymd_and_hms(
+        next.year(),
+        next.month(),
+        next.day(),
+        next.hour(),
+        next.minute(),
+        0,
+    ) {
+        chrono::LocalResult::Single(datetime) => datetime,
+        chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
+        chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
+    };
 
     let result = loop {
         // only try until next leap year
@@ -144,15 +155,26 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         // * * * <month> *
         let month = parse_field(fields[3], 1, 12)?;
         if !month.contains(&next.month()) {
-            if next.month() == 12 {
-                next = Utc
-                    .with_ymd_and_hms(next.year() + 1, 1, 1, 0, 0, 0)
-                    .unwrap();
-            } else {
-                next = Utc
-                    .with_ymd_and_hms(next.year(), next.month() + 1, 1, 0, 0, 0)
-                    .unwrap();
-            }
+            next = match Utc.with_ymd_and_hms(
+                if next.month() == 12 {
+                    next.year() + 1
+                } else {
+                    next.year()
+                },
+                if next.month() == 12 {
+                    1
+                } else {
+                    next.month() + 1
+                },
+                1,
+                0,
+                0,
+                0,
+            ) {
+                chrono::LocalResult::Single(datetime) => datetime,
+                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
+                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
+            };
             continue;
         }
 
@@ -160,9 +182,11 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         let do_m = parse_field(fields[2], 1, 31)?;
         if !do_m.contains(&next.day()) {
             next += Duration::days(1);
-            next = Utc
-                .with_ymd_and_hms(next.year(), next.month(), next.day(), 0, 0, 0)
-                .unwrap();
+            next = match Utc.with_ymd_and_hms(next.year(), next.month(), next.day(), 0, 0, 0) {
+                chrono::LocalResult::Single(datetime) => datetime,
+                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
+                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
+            };
             continue;
         }
 
@@ -170,9 +194,18 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         let hour = parse_field(fields[1], 0, 23)?;
         if !hour.contains(&next.hour()) {
             next += Duration::hours(1);
-            next = Utc
-                .with_ymd_and_hms(next.year(), next.month(), next.day(), next.hour(), 0, 0)
-                .unwrap();
+            next = match Utc.with_ymd_and_hms(
+                next.year(),
+                next.month(),
+                next.day(),
+                next.hour(),
+                0,
+                0,
+            ) {
+                chrono::LocalResult::Single(datetime) => datetime,
+                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
+                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
+            };
             continue;
         }
 
@@ -191,11 +224,14 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         }
 
         // Valid datetime for the timezone
-        if let Some(dt) = tz.from_local_datetime(&next.naive_local()).latest() {
-            break dt;
+        match tz.from_local_datetime(&next.naive_local()) {
+            chrono::LocalResult::Single(dt) => break dt,
+            chrono::LocalResult::Ambiguous(earlier, _later) => break earlier,
+            chrono::LocalResult::None => {
+                next += Duration::minutes(1);
+                continue;
+            }
         }
-
-        next += Duration::minutes(1);
     };
 
     Ok(result)
@@ -321,5 +357,6 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
             }
         }
     }
+
     Ok(values)
 }
