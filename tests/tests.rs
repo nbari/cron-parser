@@ -50,6 +50,18 @@ parse_field_tests! {
     parse_range_and_list5: ("2-3,9,*/15,1-8,11,9,4,5", 0, 23, vec![0,1,2,3,4,5,6,7,8,9,11,15]),
     parse_range_list_step: ("*/30,40-45,57", 0, 59, vec![0,30,40,41,42,43,44,45,57]),
     parse_range_list_step_repeated_values: ("*/30,40-45,57,30,44,41-45", 0, 59, vec![0,30,40,41,42,43,44,45,57]),
+    parse_start_step_minute: ("1/6", 0, 59, vec![1,7,13,19,25,31,37,43,49,55]),
+    parse_start_step_hour: ("1/6", 0, 23, vec![1,7,13,19]),
+    parse_start_step_day: ("1/6", 1, 31, vec![1,7,13,19,25,31]),
+    parse_start_step_month: ("1/6", 1, 12, vec![1,7]),
+    parse_start_step_dow: ("1/6", 0, 6, vec![1]),
+    parse_range_with_step_minute: ("5-40/3", 0, 59, vec![5,8,11,14,17,20,23,26,29,32,35,38]),
+    parse_range_with_step_hour: ("12-18/2", 0, 23, vec![12,14,16,18]),
+    parse_range_with_step_hour_2: ("1-23/6", 0, 23, vec![1,7,13,19]),
+    parse_range_with_step_hour_3: ("1/6", 0, 23, vec![1,7,13,19]),
+    parse_range_with_step_hour_4: ("6/1", 0, 23, vec![6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]),
+    parse_range_with_step_day: ("1-31/5", 1, 31, vec![1,6,11,16,21,26,31]),
+    parse_range_with_step_month: ("1-12/3", 1, 12, vec![1,4,7,10]),
 }
 
 macro_rules! parse_tests {
@@ -210,6 +222,51 @@ fn parse_needs_5_fields() {
     assert!(parse("*/5 * *", &Utc::now()).is_err());
     assert!(parse("*/5 *", &Utc::now()).is_err());
     assert!(parse("*/5", &Utc::now()).is_err());
+    assert!(parse("* * * * * *", &Utc::now()).is_err());
+}
+
+#[test]
+fn parse_start_step() {
+    assert!(parse("* 1/6 * * *", &Utc::now()).is_ok());
+    assert!(parse("* 0/5 * * *", &Utc::now()).is_ok());
+    assert!(parse("* */5 * * *", &Utc::now()).is_ok());
+    assert!(parse("* */0 * * *", &Utc::now()).is_err());
+}
+
+#[test]
+fn combine_ranges_with_steps() {
+    assert!(parse("* 12-18/2 * * *", &Utc::now()).is_ok());
+}
+
+#[test]
+fn parse_field_start_stop_0() {
+    assert!(parse_field("*/0", 0, 24).is_err());
+}
+
+#[test]
+fn test_field_parsing() {
+    // Valid: */5
+    let result = parse_field("*/5", 0, 59).unwrap();
+    assert_eq!(result, (0..=59).step_by(5).collect::<BTreeSet<u32>>());
+
+    // Valid: 1/6
+    let result = parse_field("1/6", 0, 59).unwrap();
+    assert_eq!(result, (1..=59).step_by(6).collect::<BTreeSet<u32>>());
+
+    // Valid: 12-18/2
+    let result = parse_field("12-18/2", 0, 23).unwrap();
+    assert_eq!(result, BTreeSet::from([12, 14, 16, 18]));
+
+    // Invalid: step 0
+    assert!(parse_field("*/0", 0, 59).is_err());
+
+    // Invalid: out-of-range values
+    assert!(parse_field("60", 0, 59).is_err());
+    assert!(parse_field("24", 0, 23).is_err());
+    assert!(parse_field("13-25", 1, 12).is_err());
+
+    // Invalid: invalid range
+    assert!(parse_field("10-5", 0, 59).is_err()); // Reverse range
 }
 
 // 1541322900 -> 1_541_322_900

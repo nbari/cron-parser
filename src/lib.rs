@@ -287,10 +287,13 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
 ///  assert_eq!(parse_field("15,3,23", 0, 23).unwrap(),
 ///  BTreeSet::<u32>::from([3,15,23].iter().cloned().collect::<BTreeSet<u32>>()));
 /// ```
+///
+/// Parses a cron field, supporting formats like:
+/// `*/N`, `<start>/<step>`, ranges (`min-max`), and lists (`1,2,3`).
+///
 /// # Errors
 /// [`ParseError`](enum.ParseError.html)
 pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, ParseError> {
-    // set of integers
     let mut values = BTreeSet::<u32>::new();
 
     // split fields by ','
@@ -305,58 +308,103 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                     values.insert(i);
                 }
             }
+
             // step values
-            f if field.starts_with("*/") => {
-                let f: u32 = f.trim_start_matches("*/").parse()?;
-                if f > max {
+            f if f.starts_with("*/") => {
+                let step: u32 = f.trim_start_matches("*/").parse()?;
+
+                if step == 0 || step > max {
                     return Err(ParseError::InvalidValue);
                 }
-                for i in (min..=max).step_by(f as usize) {
+
+                for i in (min..=max).step_by(step as usize) {
                     values.insert(i);
                 }
             }
-            // range of values, it can have days of week like Wed-Fri
-            f if f.contains('-') => {
-                let tmp_fields: Vec<&str> = f.split('-').collect();
+
+            // step with range, eg: 12-18/2
+            f if f.contains('/') => {
+                let tmp_fields: Vec<&str> = f.split('/').collect();
+
                 if tmp_fields.len() != 2 {
                     return Err(ParseError::InvalidRange);
                 }
 
-                let mut fields: Vec<u32> = Vec::new();
+                // get the step, eg: 2 from 12-18/2
+                let step: u32 = tmp_fields[1].parse()?;
 
-                if let Ok(dow) = Dow::from_str(tmp_fields[0]) {
-                    fields.push(dow as u32);
-                } else {
-                    fields.push(tmp_fields[0].parse::<u32>()?);
-                };
-
-                if let Ok(dow) = Dow::from_str(tmp_fields[1]) {
-                    fields.push(dow as u32);
-                } else {
-                    fields.push(tmp_fields[1].parse::<u32>()?);
+                if step == 0 || step > max {
+                    return Err(ParseError::InvalidValue);
                 }
 
-                if fields[0] > fields[1] || fields[1] > max {
+                // check for range, eg: 12-18
+                if tmp_fields[0].contains('-') {
+                    let tmp_range: Vec<&str> = tmp_fields[0].split('-').collect();
+
+                    if tmp_range.len() != 2 {
+                        return Err(ParseError::InvalidRange);
+                    }
+
+                    let start = parse_cron_value(tmp_range[0], min, max)?;
+
+                    let end = parse_cron_value(tmp_range[1], min, max)?;
+
+                    if start > end {
+                        return Err(ParseError::InvalidRange);
+                    }
+
+                    for i in (start..=end).step_by(step as usize) {
+                        values.insert(i);
+                    }
+                } else {
+                    let start = parse_cron_value(tmp_fields[0], min, max)?;
+
+                    for i in (start..=max).step_by(step as usize) {
+                        values.insert(i);
+                    }
+                }
+            }
+
+            // range of values, it can have days of week like Wed-Fri
+            f if f.contains('-') => {
+                let tmp_fields: Vec<&str> = f.split('-').collect();
+
+                if tmp_fields.len() != 2 {
                     return Err(ParseError::InvalidRange);
                 }
-                for i in fields[0]..=fields[1] {
+
+                let start = parse_cron_value(tmp_fields[0], min, max)?;
+
+                let end = parse_cron_value(tmp_fields[1], min, max)?;
+
+                if start > end {
+                    return Err(ParseError::InvalidRange);
+                }
+                for i in start..=end {
                     values.insert(i);
                 }
             }
+
             // integers or days of week any other will return an error
             _ => {
-                if let Ok(dow) = Dow::from_str(field) {
-                    values.insert(dow as u32);
-                } else {
-                    let f = field.parse::<u32>()?;
-                    if f > max {
-                        return Err(ParseError::InvalidValue);
-                    }
-                    values.insert(f);
-                }
+                let value = parse_cron_value(field, min, max)?;
+                values.insert(value);
             }
         }
     }
 
     Ok(values)
+}
+
+// helper function to parse cron values
+fn parse_cron_value(value: &str, min: u32, max: u32) -> Result<u32, ParseError> {
+    if let Ok(dow) = Dow::from_str(value) {
+        Ok(dow as u32)
+    } else {
+        let v: u32 = value.parse()?;
+        if v < min || v > max {
+            return Err(ParseError::InvalidValue);
+        }
+        Ok(v)
+    }
 }

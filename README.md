@@ -63,6 +63,21 @@ Cron table:
 * `/` step values
 
 
+## start-end/step
+
+Ranges with steps are supported, for example:
+
+```
+0 12-18/3 * * *  # every 3 hours starting from 12 to 18
+```
+
+Or every 6 hours starting from 1:
+
+```
+0 1/6 * * *
+```
+
+
 Depends on crate [chrono](https://crates.io/crates/chrono).
 
 Example of `Cargo.toml`:
