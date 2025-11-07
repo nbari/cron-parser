@@ -83,14 +83,12 @@ impl fmt::Display for ParseError {
 impl Error for ParseError {}
 
 impl From<num::ParseIntError> for ParseError {
-    #[must_use]
     fn from(err: num::ParseIntError) -> Self {
         Self::ParseIntError(err)
     }
 }
 
 impl From<num::TryFromIntError> for ParseError {
-    #[must_use]
     fn from(err: num::TryFromIntError) -> Self {
         Self::TryFromIntError(err)
     }
