@@ -436,5 +436,84 @@ fn test_case_insensitive_dow() {
     );
 }
 
+// Test for invalid range in step with range format (e.g., "1-2-3/5")
+#[test]
+fn test_invalid_range_in_step() {
+    // Multiple dashes in range with step
+    assert!(parse_field("1-2-3/5", 0, 59).is_err());
+    assert!(parse_field("10-20-30/2", 0, 59).is_err());
+}
+
+// Test for invalid range where start > end in step format
+#[test]
+fn test_reverse_range_with_step() {
+    // Reverse range with step should error
+    assert!(parse_field("20-10/2", 0, 59).is_err());
+    assert!(parse_field("50-40/5", 0, 59).is_err());
+}
+
+// Test cron expression that will never match within 4 years
+#[test]
+fn test_cron_never_matches() {
+    // Invalid combination: February 30 will never occur
+    let now = Utc.timestamp_opt(1_573_151_292, 0).unwrap();
+    assert!(parse("0 0 30 2 *", &now).is_err());
+}
+
+// Test with DST transition (spring forward) - skipped hour
+#[test]
+fn test_dst_spring_forward_skipped_time() {
+    // 2024-03-10 02:00 AM PST does not exist (spring forward to 3:00 AM PDT)
+    // Use Pacific timezone which has DST
+    let before_dst = Pacific
+        .with_ymd_and_hms(2024, 3, 10, 1, 30, 0)
+        .unwrap();
+    
+    // Schedule at 2:30 AM which doesn't exist due to DST
+    // The parser should skip to the next valid time
+    let result = parse("30 2 * * *", &before_dst);
+    assert!(result.is_ok());
+    
+    // The result should be after the DST transition
+    let next = result.unwrap();
+    // Should skip the non-existent 2:30 AM and go to the next day
+    assert!(next.day() >= 10);
+}
+
+// Test with fall back DST - ambiguous time
+#[test]
+fn test_dst_fall_back_ambiguous_time() {
+    // November 3, 2024: 1:00 AM happens twice (fall back)
+    // Create a time during the ambiguous period
+    match Pacific.with_ymd_and_hms(2024, 11, 3, 1, 30, 0) {
+        chrono::LocalResult::Ambiguous(earlier, _later) => {
+            // Use the earlier (PDT) time
+            let result = parse("*/15 * * * *", &earlier);
+            assert!(result.is_ok());
+        }
+        chrono::LocalResult::Single(dt) => {
+            // If single, just test it works
+            let result = parse("*/15 * * * *", &dt);
+            assert!(result.is_ok());
+        }
+        chrono::LocalResult::None => {
+            panic!("1:30 AM on Nov 3 should exist");
+        }
+    }
+}
+
+// Test with extremely restrictive cron that takes long to find next match
+#[test]
+fn test_very_restrictive_cron() {
+    // Feb 29 only on leap years that fall on Friday
+    let now = Utc.timestamp_opt(1_577_836_800, 0).unwrap(); // 2020-01-01
+    
+    // This should work as 2020-02-29 is on Saturday (day 6)
+    // But if we look for Sunday (day 0), it won't match in 4 years
+    let result = parse("0 0 29 2 0", &now);
+    // Feb 29 on Sunday doesn't occur in the next 4 years from 2020
+    assert!(result.is_err());
+}
+
 // 1541322900 -> 1_541_322_900
 // vim :%s/\(\d\)\(\(\d\d\d\)\+\d\@!\)\@=/\1_/g

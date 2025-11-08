@@ -50,6 +50,10 @@ check:
 clean:
     cargo clean
 
+# Generate code coverage report
+coverage:
+    cargo llvm-cov --all-features --workspace
+
 # Run all quality checks (format, lint, test)
 ci: format-check lint test
     @echo "All CI checks passed!"

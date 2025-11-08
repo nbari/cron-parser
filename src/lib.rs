@@ -472,4 +472,48 @@ mod tests {
         // December 31
         assert!(make_utc_datetime(2024, 12, 31, 23, 59, 59).is_ok());
     }
+
+    #[test]
+    fn test_parse_error_display() {
+        // Test InvalidCron
+        let err = ParseError::InvalidCron;
+        assert_eq!(format!("{}", err), "invalid cron");
+
+        // Test InvalidRange
+        let err = ParseError::InvalidRange;
+        assert_eq!(format!("{}", err), "invalid input");
+
+        // Test InvalidValue
+        let err = ParseError::InvalidValue;
+        assert_eq!(format!("{}", err), "invalid value");
+
+        // Test ParseIntError
+        let parse_int_err = "abc".parse::<u32>().unwrap_err();
+        let err = ParseError::ParseIntError(parse_int_err);
+        assert!(format!("{}", err).contains("invalid digit"));
+
+        // Test TryFromIntError
+        let try_from_err = u8::try_from(256u32).unwrap_err();
+        let err = ParseError::TryFromIntError(try_from_err);
+        assert!(format!("{}", err).contains("out of range"));
+
+        // Test InvalidTimezone
+        let err = ParseError::InvalidTimezone;
+        assert_eq!(format!("{}", err), "invalid timezone");
+    }
+
+    #[test]
+    fn test_parse_error_from_try_from_int_error() {
+        // Test From<TryFromIntError> conversion
+        let try_from_err = u8::try_from(256u32).unwrap_err();
+        let parse_err: ParseError = try_from_err.into();
+        assert!(matches!(parse_err, ParseError::TryFromIntError(_)));
+    }
+
+    #[test]
+    fn test_parse_error_implements_error_trait() {
+        // Test that ParseError implements Error trait
+        let err: Box<dyn Error> = Box::new(ParseError::InvalidCron);
+        assert_eq!(err.to_string(), "invalid cron");
+    }
 }
