@@ -1,4 +1,4 @@
-use chrono::{TimeZone, Utc};
+use chrono::{Datelike, TimeZone, Timelike, Utc};
 use chrono_tz::{America::Chicago, US::Pacific};
 use cron_parser::{parse, parse_field};
 use std::collections::BTreeSet;
@@ -236,6 +236,74 @@ fn parse_start_step() {
 #[test]
 fn combine_ranges_with_steps() {
     assert!(parse("* 12-18/2 * * *", &Utc::now()).is_ok());
+    // Test the exact pattern from CHANGELOG
+    assert!(parse("0 12-18/3 * * *", &Utc::now()).is_ok());
+}
+
+#[test]
+fn test_range_step_patterns() {
+    // Verify the CHANGELOG example works correctly
+    let now = Utc.timestamp_opt(1_573_239_864, 0).unwrap(); // 2019-11-08 17:44:24 UTC
+    let result = parse("0 12-18/3 * * *", &now);
+    assert!(result.is_ok());
+    let next = result.unwrap();
+    // Next should be at 18:00 same day or 12:00 next day
+    assert!(next.hour() == 18 || (next.hour() == 12 && next.day() == 9));
+
+    // Test various range-step patterns
+    assert!(parse("0 0-23/6 * * *", &Utc::now()).is_ok()); // Every 6 hours
+    assert!(parse("*/10 9-17 * * *", &Utc::now()).is_ok()); // Every 10 min during 9-5
+    assert!(parse("0 1-12/2 * * *", &Utc::now()).is_ok()); // Every 2 hours from 1-12
+    assert!(parse("30 8-20/4 * * 1-5", &Utc::now()).is_ok()); // Complex pattern with range-step
+}
+
+#[test]
+fn test_changelog_example_12_18_step_3() {
+    // Test the exact CHANGELOG example: "0 12-18/3 * * *"
+    // This should execute at 12:00, 15:00, and 18:00 each day
+
+    // Starting before first execution (11:00)
+    let before_first = Utc.timestamp_opt(1_573_210_800, 0).unwrap(); // 2019-11-08 11:00:00 UTC
+    let next = parse("0 12-18/3 * * *", &before_first).unwrap();
+    assert_eq!(next.hour(), 12);
+    assert_eq!(next.minute(), 0);
+
+    // Starting after first execution (13:00)
+    let after_first = Utc.timestamp_opt(1_573_218_000, 0).unwrap(); // 2019-11-08 13:00:00 UTC
+    let next = parse("0 12-18/3 * * *", &after_first).unwrap();
+    assert_eq!(next.hour(), 15);
+    assert_eq!(next.minute(), 0);
+
+    // Starting after second execution (16:00)
+    let after_second = Utc.timestamp_opt(1_573_228_800, 0).unwrap(); // 2019-11-08 16:00:00 UTC
+    let next = parse("0 12-18/3 * * *", &after_second).unwrap();
+    assert_eq!(next.hour(), 18);
+    assert_eq!(next.minute(), 0);
+
+    // Starting after last execution (19:00) - should go to next day
+    let after_last = Utc.timestamp_opt(1_573_239_600, 0).unwrap(); // 2019-11-08 19:00:00 UTC
+    let next = parse("0 12-18/3 * * *", &after_last).unwrap();
+    assert_eq!(next.hour(), 12);
+    assert_eq!(next.minute(), 0);
+    assert_eq!(next.day(), 9); // Next day
+}
+
+#[test]
+fn test_range_step_edge_cases() {
+    // Test edge cases for range-step
+    let now = Utc::now();
+
+    // Step equals range
+    assert!(parse("0 12-12/1 * * *", &now).is_ok());
+
+    // Large step that only hits start
+    assert!(parse("0 12-18/10 * * *", &now).is_ok());
+
+    // Step of 1 (same as regular range)
+    assert!(parse("0 12-18/1 * * *", &now).is_ok());
+
+    // Multiple range-step patterns
+    assert!(parse("0 1-5/2,10-14/2 * * *", &now).is_ok());
 }
 
 #[test]
@@ -267,6 +335,105 @@ fn test_field_parsing() {
 
     // Invalid: invalid range
     assert!(parse_field("10-5", 0, 59).is_err()); // Reverse range
+}
+
+// Additional edge case tests
+#[test]
+fn test_invalid_dow_name() {
+    // Invalid day-of-week names should error
+    assert!(parse("0 0 * * InvalidDay", &Utc::now()).is_err());
+    assert!(parse("0 0 * * Monday", &Utc::now()).is_err()); // Full name not supported
+}
+
+#[test]
+fn test_step_greater_than_max() {
+    // Step value greater than max should error
+    assert!(parse_field("*/60", 0, 59).is_err());
+    assert!(parse_field("*/100", 0, 23).is_err());
+    assert!(parse_field("1/60", 0, 59).is_err());
+}
+
+#[test]
+fn test_empty_field_parts() {
+    // Empty parts after comma should be ignored
+    // Currently returns empty set - could be improved to error
+    assert_eq!(parse_field(",,,", 0, 59).unwrap(), BTreeSet::new());
+    assert_eq!(parse_field("1,,,2", 0, 59).unwrap(), BTreeSet::from([1, 2]));
+}
+
+#[test]
+fn test_invalid_range_step_format() {
+    // Multiple slashes should error
+    assert!(parse_field("1/2/3", 0, 59).is_err());
+    assert!(parse_field("*/5/2", 0, 59).is_err());
+}
+
+#[test]
+fn test_range_with_invalid_step_zero() {
+    // Range with step 0 should error
+    assert!(parse_field("1-10/0", 0, 59).is_err());
+    assert!(parse_field("0-23/0", 0, 23).is_err());
+}
+
+#[test]
+fn test_dow_range() {
+    // Test day-of-week ranges with names
+    assert!(parse_field("Mon-Fri", 0, 6).is_ok());
+    assert_eq!(
+        parse_field("Mon-Fri", 0, 6).unwrap(),
+        BTreeSet::from([1, 2, 3, 4, 5])
+    );
+    // Sat-Sun should error because Sat (6) > Sun (0) is an invalid range
+    assert!(parse_field("Sat-Sun", 0, 6).is_err());
+}
+
+#[test]
+fn test_very_large_numbers() {
+    // Numbers way beyond max should error
+    assert!(parse_field("9999", 0, 59).is_err());
+    assert!(parse_field("100-200", 0, 59).is_err());
+}
+
+#[test]
+fn test_mixed_dow_formats() {
+    // Mixed numeric and named days
+    assert!(parse_field("0,Mon,5,Fri", 0, 6).is_ok());
+    assert_eq!(
+        parse_field("0,Mon,5,Fri", 0, 6).unwrap(),
+        BTreeSet::from([0, 1, 5])
+    );
+}
+
+#[test]
+fn test_cron_edge_cases() {
+    // Test some edge cases with full cron expressions
+    // April only has 30 days, so April 31 will error after 4-year lookahead
+    assert!(parse("0 0 31 4 *", &Utc::now()).is_err());
+    // Feb 31 doesn't exist, will error after 4-year lookahead
+    assert!(parse("0 0 31 2 *", &Utc::now()).is_err());
+
+    // Invalid: step in dow field
+    assert!(parse("0 0 * * */8", &Utc::now()).is_err()); // Step > 6 for dow
+}
+
+#[test]
+fn test_whitespace_handling() {
+    // Multiple spaces should be handled correctly
+    assert!(parse("*  *  *  *  *", &Utc::now()).is_ok());
+    assert!(parse("*/5    *    *    *    *", &Utc::now()).is_ok());
+}
+
+#[test]
+fn test_case_insensitive_dow() {
+    // Day names should be case insensitive
+    assert_eq!(
+        parse_field("mon", 0, 6).unwrap(),
+        parse_field("MON", 0, 6).unwrap()
+    );
+    assert_eq!(
+        parse_field("mon", 0, 6).unwrap(),
+        parse_field("Mon", 0, 6).unwrap()
+    );
 }
 
 // 1541322900 -> 1_541_322_900

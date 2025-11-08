@@ -18,7 +18,7 @@ Example:
        }
 
        // passing a custom timestamp
-       if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp(1893456000, 0)) {
+       if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp_opt(1893456000, 0).unwrap()) {
             println!("next leap year: {}", next);
             assert_eq!(next.timestamp(), 1961625600);
        }
@@ -77,6 +77,37 @@ Or every 6 hours starting from 1:
 0 1/6 * * *
 ```
 
+
+## Examples
+
+The library includes several example programs demonstrating different use cases:
+
+### Parse Example
+Interactive cron expression parser that shows next execution times:
+
+```bash
+cargo run --example parse -- "*/5 * * * *"
+cargo run --example parse -- "0 9 * * 1-5" --count 10
+cargo run --example parse -- "0 12-18/3 * * *" --count 10
+```
+
+### Timezone Example
+Demonstrates how cron expressions work across different timezones:
+
+```bash
+cargo run --example timezone
+```
+
+### Patterns Example
+Showcases common cron expression patterns:
+
+```bash
+cargo run --example patterns
+```
+
+See the [examples/](examples/) directory for the full source code.
+
+## Dependencies
 
 Depends on crate [chrono](https://crates.io/crates/chrono).
 

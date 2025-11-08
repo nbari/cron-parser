@@ -40,6 +40,7 @@ pub enum ParseError {
     InvalidTimezone,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Dow {
     Sun = 0,
     Mon = 1,
@@ -136,18 +137,14 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
     };
 
-    next = match Utc.with_ymd_and_hms(
+    next = make_utc_datetime(
         next.year(),
         next.month(),
         next.day(),
         next.hour(),
         next.minute(),
         0,
-    ) {
-        chrono::LocalResult::Single(datetime) => datetime,
-        chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
-        chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
-    };
+    )?;
 
     let result = loop {
         // only try until next leap year
@@ -158,7 +155,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         // * * * <month> *
         let month = parse_field(fields[3], 1, 12)?;
         if !month.contains(&next.month()) {
-            next = match Utc.with_ymd_and_hms(
+            next = make_utc_datetime(
                 if next.month() == 12 {
                     next.year() + 1
                 } else {
@@ -173,11 +170,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
                 0,
                 0,
                 0,
-            ) {
-                chrono::LocalResult::Single(datetime) => datetime,
-                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
-                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
-            };
+            )?;
             continue;
         }
 
@@ -185,11 +178,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         let do_m = parse_field(fields[2], 1, 31)?;
         if !do_m.contains(&next.day()) {
             next += Duration::days(1);
-            next = match Utc.with_ymd_and_hms(next.year(), next.month(), next.day(), 0, 0, 0) {
-                chrono::LocalResult::Single(datetime) => datetime,
-                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
-                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
-            };
+            next = make_utc_datetime(next.year(), next.month(), next.day(), 0, 0, 0)?;
             continue;
         }
 
@@ -197,18 +186,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         let hour = parse_field(fields[1], 0, 23)?;
         if !hour.contains(&next.hour()) {
             next += Duration::hours(1);
-            next = match Utc.with_ymd_and_hms(
-                next.year(),
-                next.month(),
-                next.day(),
-                next.hour(),
-                0,
-                0,
-            ) {
-                chrono::LocalResult::Single(datetime) => datetime,
-                chrono::LocalResult::Ambiguous(earlier, _later) => earlier,
-                chrono::LocalResult::None => return Err(ParseError::InvalidTimezone),
-            };
+            next = make_utc_datetime(next.year(), next.month(), next.day(), next.hour(), 0, 0)?;
             continue;
         }
 
@@ -409,5 +387,89 @@ fn parse_cron_value(value: &str, min: u32, max: u32) -> Result<u32, ParseError> 
             return Err(ParseError::InvalidValue);
         }
         Ok(v)
+    }
+}
+
+// helper function to create UTC datetime, preferring earlier time in ambiguous cases
+fn make_utc_datetime(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> Result<DateTime<Utc>, ParseError> {
+    match Utc.with_ymd_and_hms(year, month, day, hour, minute, second) {
+        chrono::LocalResult::Single(datetime) => Ok(datetime),
+        chrono::LocalResult::Ambiguous(earlier, _later) => Ok(earlier),
+        chrono::LocalResult::None => Err(ParseError::InvalidTimezone),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_make_utc_datetime_valid() {
+        // Valid datetime
+        let result = make_utc_datetime(2024, 1, 15, 10, 30, 45);
+        assert!(result.is_ok());
+        let dt = result.unwrap();
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 1);
+        assert_eq!(dt.day(), 15);
+        assert_eq!(dt.hour(), 10);
+        assert_eq!(dt.minute(), 30);
+        assert_eq!(dt.second(), 45);
+    }
+
+    #[test]
+    fn test_make_utc_datetime_leap_year() {
+        // Feb 29 in leap year should be valid
+        assert!(make_utc_datetime(2024, 2, 29, 12, 0, 0).is_ok());
+    }
+
+    #[test]
+    fn test_make_utc_datetime_invalid_date() {
+        // Feb 30 doesn't exist
+        assert!(make_utc_datetime(2024, 2, 30, 12, 0, 0).is_err());
+
+        // Feb 29 in non-leap year
+        assert!(make_utc_datetime(2023, 2, 29, 12, 0, 0).is_err());
+
+        // April 31 doesn't exist
+        assert!(make_utc_datetime(2024, 4, 31, 12, 0, 0).is_err());
+    }
+
+    #[test]
+    fn test_make_utc_datetime_invalid_time() {
+        // Invalid hour
+        assert!(make_utc_datetime(2024, 1, 15, 24, 0, 0).is_err());
+
+        // Invalid minute
+        assert!(make_utc_datetime(2024, 1, 15, 12, 60, 0).is_err());
+
+        // Invalid second
+        assert!(make_utc_datetime(2024, 1, 15, 12, 0, 60).is_err());
+    }
+
+    #[test]
+    fn test_make_utc_datetime_invalid_month() {
+        // Invalid month
+        assert!(make_utc_datetime(2024, 0, 15, 12, 0, 0).is_err());
+        assert!(make_utc_datetime(2024, 13, 15, 12, 0, 0).is_err());
+    }
+
+    #[test]
+    fn test_make_utc_datetime_boundary_values() {
+        // Minimum valid values
+        assert!(make_utc_datetime(2024, 1, 1, 0, 0, 0).is_ok());
+
+        // Maximum valid time in a day
+        assert!(make_utc_datetime(2024, 1, 1, 23, 59, 59).is_ok());
+
+        // December 31
+        assert!(make_utc_datetime(2024, 12, 31, 23, 59, 59).is_ok());
     }
 }

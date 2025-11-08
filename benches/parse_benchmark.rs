@@ -1,5 +1,5 @@
 use chrono::Utc;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use cron_parser::parse;
 
 pub fn criterion_benchmark(c: &mut Criterion) {

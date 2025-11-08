@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://docs.rs/cron-parser
+    about: Check the documentation for usage examples and API reference
+  - name: Crates.io
+    url: https://crates.io/crates/cron-parser
+    about: View the package on crates.io

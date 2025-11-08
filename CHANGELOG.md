@@ -1,2 +1,40 @@
-## 0.10.0
-* support start-end/step pattern, e.g. "0 12-18/3 * * *"
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.11.0] - 2025-11-08
+
+### Added
+- Three comprehensive example programs (`parse`, `timezone`, `patterns`)
+- Comprehensive unit tests for `make_utc_datetime()` helper function
+- Extensive test coverage for range-step patterns (e.g., "0 12-18/3 * * *")
+- Additional edge case tests for cron expression parsing (11 new tests)
+- GitHub Actions workflows for CI, releases, and publishing to crates.io
+- Dependabot configuration for automatic dependency updates
+- Justfile with 25+ recipes for common development tasks
+- Issue and PR templates for better contributor experience
+- Comprehensive release documentation (.github/RELEASE.md)
+
+### Changed
+- **Breaking**: Upgraded to Rust edition 2024
+- GitHub Actions: Updated all actions to latest versions (checkout@v5, cache@v4, codecov@v4)
+- GitHub Actions: Replaced cargo-tarpaulin with grcov for more reliable code coverage
+- Improved code organization with helper function `make_utc_datetime()`
+- Added derives (`Clone`, `Copy`, `PartialEq`, `Eq`) to internal `Dow` enum
+- Enhanced Cargo.toml categories to include "date-and-time"
+- Release tags now use pure semver format (0.11.0 instead of v0.11.0)
+
+### Fixed
+- Reduced code duplication in datetime creation logic
+
+## [0.10.0] - 2024-12-14
+
+### Added
+- Support for start-end/step pattern, e.g. "0 12-18/3 * * *"
+
+## Previous Versions
+
+See git history for changes in versions prior to 0.10.0.
