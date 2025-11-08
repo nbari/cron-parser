@@ -10,9 +10,14 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Run Tests
+    uses: ./.github/workflows/test.yml
+
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -24,9 +29,6 @@ jobs:
 
       - name: Build
         run: cargo build --release
-
-      - name: Run tests
-        run: cargo test --release
 
       - name: Generate changelog
         id: changelog
@@ -107,7 +109,9 @@ jobs:
   publish-crates-io:
     name: Publish to crates.io
     runs-on: ubuntu-latest
-    needs: create-release
+    needs:
+      - test
+      - create-release
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
