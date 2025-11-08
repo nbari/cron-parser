@@ -465,15 +465,13 @@ fn test_cron_never_matches() {
 fn test_dst_spring_forward_skipped_time() {
     // 2024-03-10 02:00 AM PST does not exist (spring forward to 3:00 AM PDT)
     // Use Pacific timezone which has DST
-    let before_dst = Pacific
-        .with_ymd_and_hms(2024, 3, 10, 1, 30, 0)
-        .unwrap();
-    
+    let before_dst = Pacific.with_ymd_and_hms(2024, 3, 10, 1, 30, 0).unwrap();
+
     // Schedule at 2:30 AM which doesn't exist due to DST
     // The parser should skip to the next valid time
     let result = parse("30 2 * * *", &before_dst);
     assert!(result.is_ok());
-    
+
     // The result should be after the DST transition
     let next = result.unwrap();
     // Should skip the non-existent 2:30 AM and go to the next day
@@ -507,7 +505,7 @@ fn test_dst_fall_back_ambiguous_time() {
 fn test_very_restrictive_cron() {
     // Feb 29 only on leap years that fall on Friday
     let now = Utc.timestamp_opt(1_577_836_800, 0).unwrap(); // 2020-01-01
-    
+
     // This should work as 2020-02-29 is on Saturday (day 6)
     // But if we look for Sunday (day 0), it won't match in 4 years
     let result = parse("0 0 29 2 0", &now);

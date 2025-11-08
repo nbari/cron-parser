@@ -11,7 +11,7 @@ build-release:
     cargo build --release
 
 # Run all tests
-test: lint
+test: lint format-check
     cargo test
 
 # Run tests with output
