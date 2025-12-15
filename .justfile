@@ -1,5 +1,5 @@
 # Default recipe to display help information
-default:
+default: test
     @just --list
 
 # Build the project
@@ -12,10 +12,6 @@ build-release:
 
 # Run all tests
 test: clippy format-check
-    cargo test
-
-# Run tests with output
-test-verbose:
     cargo test -- --nocapture
 
 # Run clippy for linting
