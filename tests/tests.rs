@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::panic)]
 use chrono::{Datelike, TimeZone, Timelike, Utc};
 use chrono_tz::{America::Chicago, US::Pacific};
 use cron_parser::{parse, parse_field};

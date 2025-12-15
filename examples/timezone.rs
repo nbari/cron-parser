@@ -5,7 +5,7 @@ use cron_parser::parse;
 fn main() {
     let cron_expr = "0 9 * * 1-5"; // Every weekday at 9:00 AM
 
-    println!("Cron expression: {} (Every weekday at 9:00 AM)", cron_expr);
+    println!("Cron expression: {cron_expr} (Every weekday at 9:00 AM)");
     println!();
 
     // Get current UTC time

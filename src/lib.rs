@@ -126,10 +126,16 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
     let tz = dt.timezone();
 
     let fields: Vec<&str> = cron.split_whitespace().collect();
-
-    if fields.len() != 5 {
+    let [
+        minute_str,
+        hour_str,
+        day_of_month_str,
+        month_str,
+        day_of_week_str,
+    ] = fields.as_slice()
+    else {
         return Err(ParseError::InvalidCron);
-    }
+    };
 
     let mut next = match Utc.from_local_datetime(&dt.naive_local()) {
         chrono::LocalResult::Single(datetime) => datetime + Duration::minutes(1),
@@ -153,7 +159,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         }
 
         // * * * <month> *
-        let month = parse_field(fields[3], 1, 12)?;
+        let month = parse_field(month_str, 1, 12)?;
         if !month.contains(&next.month()) {
             next = make_utc_datetime(
                 if next.month() == 12 {
@@ -175,7 +181,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         }
 
         // * * <dom> * *
-        let do_m = parse_field(fields[2], 1, 31)?;
+        let do_m = parse_field(day_of_month_str, 1, 31)?;
         if !do_m.contains(&next.day()) {
             next += Duration::days(1);
             next = make_utc_datetime(next.year(), next.month(), next.day(), 0, 0, 0)?;
@@ -183,7 +189,7 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         }
 
         // * <hour> * * *
-        let hour = parse_field(fields[1], 0, 23)?;
+        let hour = parse_field(hour_str, 0, 23)?;
         if !hour.contains(&next.hour()) {
             next += Duration::hours(1);
             next = make_utc_datetime(next.year(), next.month(), next.day(), next.hour(), 0, 0)?;
@@ -191,14 +197,14 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
         }
 
         // <minute> * * * *
-        let minute = parse_field(fields[0], 0, 59)?;
+        let minute = parse_field(minute_str, 0, 59)?;
         if !minute.contains(&next.minute()) {
             next += Duration::minutes(1);
             continue;
         }
 
         // * * * * <dow>
-        let do_w = parse_field(fields[4], 0, 6)?;
+        let do_w = parse_field(day_of_week_str, 0, 6)?;
         if !do_w.contains(&next.weekday().num_days_from_sunday()) {
             next += Duration::days(1);
             continue;
@@ -210,7 +216,6 @@ pub fn parse<TZ: TimeZone>(cron: &str, dt: &DateTime<TZ>) -> Result<DateTime<TZ>
             chrono::LocalResult::Ambiguous(earlier, _later) => break earlier,
             chrono::LocalResult::None => {
                 next += Duration::minutes(1);
-                continue;
             }
         }
     };
@@ -306,29 +311,26 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
             // step with range, eg: 12-18/2
             f if f.contains('/') => {
                 let tmp_fields: Vec<&str> = f.split('/').collect();
-
-                if tmp_fields.len() != 2 {
+                let [range_part, step_part] = tmp_fields.as_slice() else {
                     return Err(ParseError::InvalidRange);
-                }
+                };
 
                 // get the step, eg: 2 from 12-18/2
-                let step: u32 = tmp_fields[1].parse()?;
+                let step: u32 = step_part.parse()?;
 
                 if step == 0 || step > max {
                     return Err(ParseError::InvalidValue);
                 }
 
                 // check for range, eg: 12-18
-                if tmp_fields[0].contains('-') {
-                    let tmp_range: Vec<&str> = tmp_fields[0].split('-').collect();
-
-                    if tmp_range.len() != 2 {
+                if range_part.contains('-') {
+                    let tmp_range: Vec<&str> = range_part.split('-').collect();
+                    let [start_str, end_str] = tmp_range.as_slice() else {
                         return Err(ParseError::InvalidRange);
-                    }
+                    };
 
-                    let start = parse_cron_value(tmp_range[0], min, max)?;
-
-                    let end = parse_cron_value(tmp_range[1], min, max)?;
+                    let start = parse_cron_value(start_str, min, max)?;
+                    let end = parse_cron_value(end_str, min, max)?;
 
                     if start > end {
                         return Err(ParseError::InvalidRange);
@@ -338,7 +340,7 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
                         values.insert(i);
                     }
                 } else {
-                    let start = parse_cron_value(tmp_fields[0], min, max)?;
+                    let start = parse_cron_value(range_part, min, max)?;
 
                     for i in (start..=max).step_by(step as usize) {
                         values.insert(i);
@@ -349,14 +351,12 @@ pub fn parse_field(field: &str, min: u32, max: u32) -> Result<BTreeSet<u32>, Par
             // range of values, it can have days of week like Wed-Fri
             f if f.contains('-') => {
                 let tmp_fields: Vec<&str> = f.split('-').collect();
-
-                if tmp_fields.len() != 2 {
+                let [start_str, end_str] = tmp_fields.as_slice() else {
                     return Err(ParseError::InvalidRange);
-                }
+                };
 
-                let start = parse_cron_value(tmp_fields[0], min, max)?;
-
-                let end = parse_cron_value(tmp_fields[1], min, max)?;
+                let start = parse_cron_value(start_str, min, max)?;
+                let end = parse_cron_value(end_str, min, max)?;
 
                 if start > end {
                     return Err(ParseError::InvalidRange);
@@ -407,6 +407,7 @@ fn make_utc_datetime(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -415,7 +416,7 @@ mod tests {
         // Valid datetime
         let result = make_utc_datetime(2024, 1, 15, 10, 30, 45);
         assert!(result.is_ok());
-        let dt = result.unwrap();
+        let dt = result.expect("Should be valid");
         assert_eq!(dt.year(), 2024);
         assert_eq!(dt.month(), 1);
         assert_eq!(dt.day(), 15);
@@ -477,35 +478,35 @@ mod tests {
     fn test_parse_error_display() {
         // Test InvalidCron
         let err = ParseError::InvalidCron;
-        assert_eq!(format!("{}", err), "invalid cron");
+        assert_eq!(format!("{err}"), "invalid cron");
 
         // Test InvalidRange
         let err = ParseError::InvalidRange;
-        assert_eq!(format!("{}", err), "invalid input");
+        assert_eq!(format!("{err}"), "invalid input");
 
         // Test InvalidValue
         let err = ParseError::InvalidValue;
-        assert_eq!(format!("{}", err), "invalid value");
+        assert_eq!(format!("{err}"), "invalid value");
 
         // Test ParseIntError
-        let parse_int_err = "abc".parse::<u32>().unwrap_err();
+        let parse_int_err = "abc".parse::<u32>().expect_err("Should fail");
         let err = ParseError::ParseIntError(parse_int_err);
-        assert!(format!("{}", err).contains("invalid digit"));
+        assert!(format!("{err}").contains("invalid digit"));
 
         // Test TryFromIntError
-        let try_from_err = u8::try_from(256u32).unwrap_err();
+        let try_from_err = u8::try_from(256u32).expect_err("Should fail");
         let err = ParseError::TryFromIntError(try_from_err);
-        assert!(format!("{}", err).contains("out of range"));
+        assert!(format!("{err}").contains("out of range"));
 
         // Test InvalidTimezone
         let err = ParseError::InvalidTimezone;
-        assert_eq!(format!("{}", err), "invalid timezone");
+        assert_eq!(format!("{err}"), "invalid timezone");
     }
 
     #[test]
     fn test_parse_error_from_try_from_int_error() {
         // Test From<TryFromIntError> conversion
-        let try_from_err = u8::try_from(256u32).unwrap_err();
+        let try_from_err = u8::try_from(256u32).expect_err("Should fail");
         let parse_err: ParseError = try_from_err.into();
         assert!(matches!(parse_err, ParseError::TryFromIntError(_)));
     }

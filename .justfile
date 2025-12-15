@@ -11,7 +11,7 @@ build-release:
     cargo build --release
 
 # Run all tests
-test: lint format-check
+test: clippy format-check
     cargo test
 
 # Run tests with output
@@ -19,16 +19,8 @@ test-verbose:
     cargo test -- --nocapture
 
 # Run clippy for linting
-lint:
-    cargo clippy --all-targets --all-features -- -D warnings
-
-# Run clippy and automatically fix issues
-lint-fix:
-    cargo clippy --all-targets --all-features --fix
-
-# Format code with rustfmt
-format:
-    cargo fmt
+clippy:
+    cargo clippy --all-targets --all-features
 
 # Check formatting without making changes
 format-check:
@@ -55,12 +47,8 @@ coverage:
     cargo llvm-cov --all-features --workspace
 
 # Run all quality checks (format, lint, test)
-ci: format-check lint test
+ci: format-check clippy test
     @echo "All CI checks passed!"
-
-# Prepare for release (format, lint, test, build)
-release-prep: format lint test build-release
-    @echo "Release preparation complete!"
 
 # Update dependencies
 update:

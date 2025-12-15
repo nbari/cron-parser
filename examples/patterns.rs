@@ -49,13 +49,13 @@ fn main() {
 fn print_pattern(now: &chrono::DateTime<chrono::Utc>, pattern: &str, description: &str) {
     match parse(pattern, now) {
         Ok(next) => {
-            println!("{:<30} {}", description, pattern);
+            println!("{description:<30} {pattern}");
             println!("  Next: {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
             println!();
         }
         Err(e) => {
-            println!("{:<30} {}", description, pattern);
-            println!("  Error: {:?}", e);
+            println!("{description:<30} {pattern}");
+            println!("  Error: {e:?}");
             println!();
         }
     }

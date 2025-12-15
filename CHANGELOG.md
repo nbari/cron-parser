@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2025-12-15
+
+### Fixed
+- Fixed clippy warnings for `indexing_slicing`, `unwrap_used`, `expect_used`, and `panic`
+- Fixed `clippy::similar_names` warnings in `src/lib.rs`
+- Fixed `clippy::uninlined_format_args` warnings
+
 ## [0.11.0] - 2025-11-08
 
 ### Added
