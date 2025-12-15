@@ -3,11 +3,6 @@ name: Test
 
 on:
   workflow_call:
-    inputs:
-      branch:
-        required: true
-        type: string
-        default: develop
   push:
     branches:
       - '*'
