@@ -2,8 +2,9 @@ use chrono::Utc;
 use cron_parser::parse;
 
 fn main() {
-    println!("Common Cron Expression Patterns");
-    println!("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
+    let title = "Common Cron Expression Patterns";
+    println!("{title}");
+    println!("{}", "-".repeat(title.len()));
     println!();
 
     let now = Utc::now();

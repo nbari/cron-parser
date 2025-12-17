@@ -54,10 +54,10 @@ update:
 audit:
     cargo audit
 
-# Run example with a cron expression (usage: just run-example "*/5 * * * *")
-run-example cron:
+# Run example with a cron expression (usage: just run-example "*/5 * * * *" --count 10)
+run-example cron +args:
     @echo "Parsing cron expression: {{cron}}"
-    @cargo run --example parse -- "{{cron}}"
+    @cargo run --example parse -- "{{cron}}" {{args}}
 
 # Run timezone example showing cron parsing across different timezones
 run-timezone-example:

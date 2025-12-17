@@ -17,54 +17,51 @@ fn main() {
     println!();
 
     println!("Next execution time in different timezones:");
-    println!("");
+    println!("--------------------------------------------------------");
 
     // UTC
-    if let Ok(next) = parse(cron_expr, &utc_now) {
-        println!("UTC:              {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
-    }
+    print_next("UTC", cron_expr, &utc_now, false);
 
     // Pacific
     let pacific_now = utc_now.with_timezone(&Pacific);
-    if let Ok(next) = parse(cron_expr, &pacific_now) {
-        println!("US/Pacific:       {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
-        println!(
-            "                  (UTC: {})",
-            next.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S %Z")
-        );
-    }
+    print_next("US/Pacific", cron_expr, &pacific_now, true);
 
     // New York
     let ny_now = utc_now.with_timezone(&New_York);
-    if let Ok(next) = parse(cron_expr, &ny_now) {
-        println!("America/New_York: {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
-        println!(
-            "                  (UTC: {})",
-            next.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S %Z")
-        );
-    }
+    print_next("America/New_York", cron_expr, &ny_now, true);
 
     // London
     let london_now = utc_now.with_timezone(&London);
-    if let Ok(next) = parse(cron_expr, &london_now) {
-        println!("Europe/London:    {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
-        println!(
-            "                  (UTC: {})",
-            next.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S %Z")
-        );
-    }
+    print_next("Europe/London", cron_expr, &london_now, true);
 
     // Tokyo
     let tokyo_now = utc_now.with_timezone(&Tokyo);
-    if let Ok(next) = parse(cron_expr, &tokyo_now) {
-        println!("Asia/Tokyo:       {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
-        println!(
-            "                  (UTC: {})",
-            next.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S %Z")
-        );
-    }
+    print_next("Asia/Tokyo", cron_expr, &tokyo_now, true);
 
     println!();
     println!("Note: The same cron expression produces different absolute times");
     println!("depending on the timezone, but represents the same local time.");
+}
+
+fn print_next<TZ: chrono::TimeZone>(
+    label: &str,
+    cron_expr: &str,
+    now: &chrono::DateTime<TZ>,
+    also_print_utc: bool,
+) where
+    TZ::Offset: std::fmt::Display,
+{
+    match parse(cron_expr, now) {
+        Ok(next) => {
+            println!("{label:<16} {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
+            if also_print_utc {
+                println!(
+                    "{:16} (UTC: {})",
+                    "",
+                    next.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S %Z")
+                );
+            }
+        }
+        Err(e) => println!("{label:<16} Error: {e:?}"),
+    }
 }
