@@ -8,6 +8,8 @@ updates:
       interval: weekly
       day: monday
       time: 09:00
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     reviewers:
       - nbari
@@ -25,6 +27,8 @@ updates:
       interval: weekly
       day: monday
       time: 09:00
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     reviewers:
       - nbari

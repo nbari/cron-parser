@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cron_parser::parse;
+use cron_parser::Schedule;
 use std::env;
 
 fn main() {
@@ -42,23 +42,15 @@ fn main() {
     println!("Current time:    {}", now.format("%Y-%m-%d %H:%M:%S %Z"));
     println!();
 
-    // Parse and show next execution times
-    match parse(&cron_expr, &now) {
-        Ok(mut next) => {
+    // Compile once, then reuse the schedule for every occurrence.
+    match cron_expr.parse::<Schedule>() {
+        Ok(schedule) => {
             println!("Next {count} execution times:");
             println!("-----------------------------------------------------");
 
-            for i in 1..=count {
+            for (index, next) in schedule.after(&now).take(count).enumerate() {
+                let i = index + 1;
                 println!("{:2}. {}", i, next.format("%Y-%m-%d %H:%M:%S %Z"));
-
-                // Get next occurrence
-                match parse(&cron_expr, &next) {
-                    Ok(n) => next = n,
-                    Err(e) => {
-                        eprintln!("\nError calculating next occurrence: {e:?}");
-                        break;
-                    }
-                }
             }
         }
         Err(e) => {

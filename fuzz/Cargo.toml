@@ -1,0 +1,27 @@
+[package]
+name = "cron-parser-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+chrono = { version = "0.4", default-features = false }
+cron-parser = { path = ".." }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "parser"
+path = "fuzz_targets/parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "evaluator"
+path = "fuzz_targets/evaluator.rs"
+test = false
+doc = false
+bench = false

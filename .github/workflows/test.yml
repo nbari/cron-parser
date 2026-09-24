@@ -10,12 +10,17 @@ on:
     branches:
       - '*'
 
+permissions:
+  contents: read
+
 jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Format
@@ -25,7 +30,9 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Clippy
@@ -35,7 +42,9 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Check
@@ -57,8 +66,28 @@ jobs:
       - lint
       - check
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
 
       - name: test
         run: cargo test
+
+  extended:
+    name: Release and fuzz targets
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Release tests
+        run: cargo test --release
+
+      - name: Check fuzz targets
+        run: cargo check --manifest-path fuzz/Cargo.toml --bins

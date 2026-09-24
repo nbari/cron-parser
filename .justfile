@@ -67,17 +67,23 @@ run-timezone-example:
 run-patterns-example:
     @cargo run --example patterns
 
+# Run schedule example showing the compiled Schedule API
+run-schedule-example:
+    @cargo run --example schedule
+
 # List all available examples
 list-examples:
     @echo "Available examples:"
     @echo "  parse    - Parse cron expressions and show next execution times"
     @echo "  timezone - Demonstrate timezone-aware cron parsing"
     @echo "  patterns - Show common cron expression patterns"
+    @echo "  schedule - Tour the compiled Schedule API (iterators, DST, errors)"
     @echo ""
     @echo "Usage:"
     @echo "  just run-example \"*/5 * * * *\""
     @echo "  just run-timezone-example"
     @echo "  just run-patterns-example"
+    @echo "  just run-schedule-example"
 
 # Publish to crates.io (dry-run)
 publish-dry:

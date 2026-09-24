@@ -11,12 +11,17 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+
 jobs:
   format:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -28,7 +33,9 @@ jobs:
     name: Clippy Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -40,7 +47,9 @@ jobs:
     name: Cargo Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Check project
@@ -63,7 +72,9 @@ jobs:
       - lint
       - check
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -79,10 +90,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Cache Rust toolchain and dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -120,7 +133,7 @@ jobs:
           --ignore '../**' --ignore '/*' -o coverage.lcov
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: coverage.lcov
           flags: rust
@@ -131,7 +144,9 @@ jobs:
     name: Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Run benchmarks
@@ -141,7 +156,9 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-audit

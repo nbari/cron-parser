@@ -4,7 +4,42 @@
 [![Test](https://github.com/nbari/cron-parser/actions/workflows/test.yml/badge.svg)](https://github.com/nbari/cron-parser/actions/workflows/test.yml)
 [![docs](https://docs.rs/cron-parser/badge.svg)](https://docs.rs/cron-parser)
 
-Library for parsing cron expressions with timezone support.
+Five-field cron expression parsing and recurrence calculation with timezone support.
+
+## Compile once with `Schedule`
+
+Use `Schedule` when an expression is evaluated repeatedly. Parsing validates
+the expression and compiles its five fields into an immutable representation;
+queries then reuse that representation without allocating.
+
+```rust
+use chrono::Utc;
+use cron_parser::Schedule;
+
+fn main() -> Result<(), cron_parser::ParseError> {
+    let schedule: Schedule = "*/5 * * * *".parse()?;
+    let now = Utc::now();
+
+    let next = schedule.next_after(&now);
+    let previous = schedule.previous_before(&now);
+    let upcoming = schedule.after(&now).take(10).collect::<Vec<_>>();
+
+    if let Some(next) = next {
+        assert!(next > now);
+        assert!(schedule.includes(&next));
+    }
+
+    Ok(())
+}
+```
+
+The query timestamp supplies the timezone. Nonexistent spring-forward minutes
+are skipped, while both real instants in a repeated fall-back minute are
+returned in chronological order. `next_after` and `previous_before` are always
+strictly exclusive.
+
+The one-shot `parse()` function remains available for applications that only
+need one result.
 
 Example:
 
@@ -52,6 +87,10 @@ Cron table:
 | Day of month | Yes      | 1–31           | \* , - /                   |
 | Month        | Yes      | 1–12           | \* , - /                   |
 | Day of week  | Yes      | 0–6 or Sun-Sat | \* , - /                   |
+
+Day-of-month and day-of-week use **AND** semantics when both are restricted.
+Sunday is `0`; `7` is not accepted. Month names, aliases, wrapping ranges, and
+Quartz-specific syntax are not supported.
 
 > For the day of the week, when using a Weekday (Sun-Sat) the expression `*/Day` is not supported instead
 > use the integer, reasons for this is that for example `*/Wed` = `*/3` translates
@@ -115,22 +154,18 @@ Example of `Cargo.toml`:
 
     [dependencies]
     chrono = "^0.4"
-    cron-parser = "*"
+    cron-parser = "0.12"
 
 
 Getting the next 10 leap year iterations:
 
     use chrono::{DateTime, Utc};
-    use cron_parser::parse;
+    use cron_parser::Schedule;
 
     fn main() {
         let now = Utc::now();
-        let mut crons = Vec::<DateTime<Utc>>::new();
-        let mut next = parse("0 0 29 2 *", &now).unwrap();
-        for _ in 0..10 {
-            next = parse("0 0 29 2 *", &next).unwrap();
-            crons.push(next);
-        }
+        let schedule: Schedule = "0 0 29 2 *".parse().unwrap();
+        let crons = schedule.after(&now).take(10).collect::<Vec<DateTime<Utc>>>();
         for x in crons {
             println!("{} - {}", x, x.timestamp());
         }

@@ -171,15 +171,15 @@ fn february_30() {
 #[test]
 fn test_parse() {
     assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", &Utc.timestamp_opt(1_573_151_292, 0).unwrap()).is_err());
+    assert!(parse("0 0 29 2 5", &Utc.timestamp_opt(1_573_151_292, 0).unwrap()).is_ok());
     assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
     assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
 }
 
 #[test]
 fn test_bad_input() {
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &Utc::now()).is_ok());
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &Utc::now()).is_ok());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &Utc::now()).is_err());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &Utc::now()).is_err());
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn test_timezone_dst() {
     for _ in 0..10 {
         next = parse("*/15 * * * *", &next).unwrap();
     }
-    assert_eq!(next.timestamp(), 1_541_322_900);
+    assert_eq!(next.timestamp(), 1_541_319_300);
 }
 
 #[test]
@@ -357,10 +357,8 @@ fn test_step_greater_than_max() {
 
 #[test]
 fn test_empty_field_parts() {
-    // Empty parts after comma should be ignored
-    // Currently returns empty set - could be improved to error
-    assert_eq!(parse_field(",,,", 0, 59).unwrap(), BTreeSet::new());
-    assert_eq!(parse_field("1,,,2", 0, 59).unwrap(), BTreeSet::from([1, 2]));
+    assert!(parse_field(",,,", 0, 59).is_err());
+    assert!(parse_field("1,,,2", 0, 59).is_err());
 }
 
 #[test]
@@ -511,8 +509,8 @@ fn test_very_restrictive_cron() {
     // This should work as 2020-02-29 is on Saturday (day 6)
     // But if we look for Sunday (day 0), it won't match in 4 years
     let result = parse("0 0 29 2 0", &now);
-    // Feb 29 on Sunday doesn't occur in the next 4 years from 2020
-    assert!(result.is_err());
+    // The evaluator searches the complete Gregorian cycle, not only four years.
+    assert!(result.is_ok());
 }
 
 // 1541322900 -> 1_541_322_900

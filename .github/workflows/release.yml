@@ -7,7 +7,7 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -18,11 +18,14 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -94,7 +97,7 @@ jobs:
           sha256sum cron-parser-${VERSION}.zip > cron-parser-${VERSION}.zip.sha256
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: Release ${{ steps.changelog.outputs.tag_name }}
           body: ${{ steps.changelog.outputs.changelog }}
@@ -114,7 +117,9 @@ jobs:
       - create-release
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
