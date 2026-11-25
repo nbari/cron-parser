@@ -1,9 +1,34 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::panic)]
-use chrono::{Datelike, TimeZone, Timelike, Utc};
-use chrono_tz::{America::Chicago, US::Pacific};
 use cron_parser::{parse, parse_field};
+use jiff::{
+    Timestamp, ZonedDateTime,
+    civil::{self, DateTime},
+    tz::{AmbiguousOffset, TimeZone},
+};
 use std::collections::BTreeSet;
+
+fn utc_at(seconds: i64) -> ZonedDateTime {
+    Timestamp::from_second(seconds)
+        .unwrap()
+        .to_zoned_datetime(TimeZone::UTC)
+}
+
+fn utc_now() -> ZonedDateTime {
+    Timestamp::now().to_zoned_datetime(TimeZone::UTC)
+}
+
+fn zone(name: &str) -> TimeZone {
+    TimeZone::get(name).unwrap()
+}
+
+/// Interpret a civil datetime in `time_zone`, requiring it to be unambiguous.
+fn local(time_zone: &TimeZone, value: DateTime) -> ZonedDateTime {
+    time_zone
+        .to_ambiguous_zoned_datetime(value)
+        .unambiguous()
+        .unwrap()
+}
 
 macro_rules! parse_field_tests {
     ($($name:ident: $value:expr,)*) => {
@@ -72,29 +97,30 @@ macro_rules! parse_tests {
             #[test]
             fn $name() {
                 let (input, ts, expected) = $value;
-                let dt = Utc.timestamp_opt(ts, 0).unwrap();
-                assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
-                let dt = Pacific.from_local_datetime(&dt.naive_utc()).unwrap();
-                let expected = Pacific
-                    .from_local_datetime(&Utc.timestamp_opt(expected, 0).unwrap().naive_utc())
-                    .unwrap()
-                    .timestamp();
-                assert_eq!(parse(input, &dt).unwrap().timestamp(), expected);
+                let dt = utc_at(ts);
+                assert_eq!(parse(input, &dt).unwrap().timestamp().as_second(), expected);
+
+                // The same wall-clock times in a zone with DST.
+                let pacific = zone("America/Los_Angeles");
+                let dt = local(&pacific, dt.datetime());
+                let expected = local(&pacific, utc_at(expected).datetime());
+                let next = parse(input, &dt).unwrap();
+                assert_eq!(next, expected);
+                assert_eq!(next.time_zone(), &pacific);
             }
         )*
     }
 }
 
-// https://play.rust-lang.org/
+// Timestamps in the table below can be checked with:
 //
-// extern crate chrono; // 0.4.9
-// use chrono::{TimeZone, Utc};
+// use jiff::{civil::datetime, tz::TimeZone, Timestamp};
 // fn main() {
 //     // 2019-11-05 15:56:35 UTC 1572969395
-//     let dt = Utc.timestamp(1572969395, 0);
-//     println!("{} {}", dt, dt.timestamp());
-//     let next = Utc.ymd(2019, 11, 5).and_hms(16, 5, 0);
-//     println!("{} {}", next, next.timestamp());
+//     let ts = Timestamp::from_second(1572969395).unwrap();
+//     println!("{ts} {}", ts.as_second());
+//     let next = datetime(2019, 11, 5, 16, 5, 0, 0).to_zoned_datetime(TimeZone::UTC).unwrap();
+//     println!("{next} {}", next.timestamp().as_second());
 // }
 parse_tests! {
     any_minute: ("* * * * *", 1_572_969_395, 1_572_969_420),
@@ -165,87 +191,87 @@ fn bad_hour_input_step() {
 
 #[test]
 fn february_30() {
-    assert!(parse("* * 30 2 *", &Utc::now()).is_err());
+    assert!(parse("* * 30 2 *", &utc_now()).is_err());
 }
 
 #[test]
 fn test_parse() {
-    assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
-    assert!(parse("0 0 29 2 5", &Utc.timestamp_opt(1_573_151_292, 0).unwrap()).is_ok());
-    assert!(parse("0 0 * * */Wed", &Utc::now()).is_err());
-    assert!(parse("0 0 * * */2-5", &Utc::now()).is_err());
+    assert!(parse("*/5 * * * *", &utc_now()).is_ok());
+    assert!(parse("0 0 29 2 5", &utc_at(1_573_151_292)).is_ok());
+    assert!(parse("0 0 * * */Wed", &utc_now()).is_err());
+    assert!(parse("0 0 * * */2-5", &utc_now()).is_err());
 }
 
 #[test]
 fn test_bad_input() {
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &Utc::now()).is_err());
-    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &Utc::now()).is_err());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5, * * * *", &utc_now()).is_err());
+    assert!(parse("2-3,9,*/15,1-8,11,9,4,5,,,, * * * *", &utc_now()).is_err());
 }
 
 #[test]
 fn test_next_100_iterations() {
-    let now = Utc.timestamp_opt(1_573_239_864, 0).unwrap();
+    let now = utc_at(1_573_239_864);
     let mut next = parse("0 23 */2 * *", &now).unwrap();
-    assert_eq!(next.timestamp(), 1_573_340_400);
+    assert_eq!(next.timestamp().as_second(), 1_573_340_400);
     for _ in 0..100 {
         next = parse("0 23 */2 * *", &next).unwrap();
     }
-    assert_eq!(next.timestamp(), 1_590_274_800);
+    assert_eq!(next.timestamp().as_second(), 1_590_274_800);
 }
 
 #[test]
 fn test_timezone() {
-    let utc = Utc.timestamp_opt(1_573_405_861, 0).unwrap();
-    let pacific_time = utc.with_timezone(&Pacific);
+    let utc = utc_at(1_573_405_861);
+    let pacific_time = utc.with_time_zone(zone("America/Los_Angeles"));
     let next_pt = parse("*/5 * * * *", &pacific_time).unwrap();
-    assert_eq!(next_pt.timestamp(), 1_573_406_100);
+    assert_eq!(next_pt.timestamp().as_second(), 1_573_406_100);
     let next_utc = parse("*/5 * * * *", &utc).unwrap();
-    assert_eq!(next_utc.timestamp(), 1_573_406_100);
+    assert_eq!(next_utc.timestamp().as_second(), 1_573_406_100);
     assert_ne!(next_pt.to_string(), next_utc.to_string());
 }
 
 #[test]
 fn test_timezone_dst() {
     // 2_018-11-04 1:30
-    let utc = Utc.timestamp_opt(1_541_309_400, 0).unwrap();
-    let cst = utc.with_timezone(&Chicago);
+    let utc = utc_at(1_541_309_400);
+    let cst = utc.with_time_zone(zone("America/Chicago"));
     let mut next = parse("*/15 * * * *", &cst).unwrap();
     for _ in 0..10 {
         next = parse("*/15 * * * *", &next).unwrap();
     }
-    assert_eq!(next.timestamp(), 1_541_319_300);
+    assert_eq!(next.timestamp().as_second(), 1_541_319_300);
 }
 
 #[test]
 // check if input filds are < 5
 fn parse_needs_5_fields() {
-    assert!(parse("*/5 * * * *", &Utc::now()).is_ok());
-    assert!(parse("*/5 * * *", &Utc::now()).is_err());
-    assert!(parse("*/5 * *", &Utc::now()).is_err());
-    assert!(parse("*/5 *", &Utc::now()).is_err());
-    assert!(parse("*/5", &Utc::now()).is_err());
-    assert!(parse("* * * * * *", &Utc::now()).is_err());
+    assert!(parse("*/5 * * * *", &utc_now()).is_ok());
+    assert!(parse("*/5 * * *", &utc_now()).is_err());
+    assert!(parse("*/5 * *", &utc_now()).is_err());
+    assert!(parse("*/5 *", &utc_now()).is_err());
+    assert!(parse("*/5", &utc_now()).is_err());
+    assert!(parse("* * * * * *", &utc_now()).is_err());
 }
 
 #[test]
 fn parse_start_step() {
-    assert!(parse("* 1/6 * * *", &Utc::now()).is_ok());
-    assert!(parse("* 0/5 * * *", &Utc::now()).is_ok());
-    assert!(parse("* */5 * * *", &Utc::now()).is_ok());
-    assert!(parse("* */0 * * *", &Utc::now()).is_err());
+    assert!(parse("* 1/6 * * *", &utc_now()).is_ok());
+    assert!(parse("* 0/5 * * *", &utc_now()).is_ok());
+    assert!(parse("* */5 * * *", &utc_now()).is_ok());
+    assert!(parse("* */0 * * *", &utc_now()).is_err());
 }
 
 #[test]
 fn combine_ranges_with_steps() {
-    assert!(parse("* 12-18/2 * * *", &Utc::now()).is_ok());
+    assert!(parse("* 12-18/2 * * *", &utc_now()).is_ok());
     // Test the exact pattern from CHANGELOG
-    assert!(parse("0 12-18/3 * * *", &Utc::now()).is_ok());
+    assert!(parse("0 12-18/3 * * *", &utc_now()).is_ok());
 }
 
 #[test]
 fn test_range_step_patterns() {
     // Verify the CHANGELOG example works correctly
-    let now = Utc.timestamp_opt(1_573_239_864, 0).unwrap(); // 2019-11-08 17:44:24 UTC
+    let now = utc_at(1_573_239_864); // 2019-11-08 17:44:24 UTC
     let result = parse("0 12-18/3 * * *", &now);
     assert!(result.is_ok());
     let next = result.unwrap();
@@ -253,10 +279,10 @@ fn test_range_step_patterns() {
     assert!(next.hour() == 18 || (next.hour() == 12 && next.day() == 9));
 
     // Test various range-step patterns
-    assert!(parse("0 0-23/6 * * *", &Utc::now()).is_ok()); // Every 6 hours
-    assert!(parse("*/10 9-17 * * *", &Utc::now()).is_ok()); // Every 10 min during 9-5
-    assert!(parse("0 1-12/2 * * *", &Utc::now()).is_ok()); // Every 2 hours from 1-12
-    assert!(parse("30 8-20/4 * * 1-5", &Utc::now()).is_ok()); // Complex pattern with range-step
+    assert!(parse("0 0-23/6 * * *", &utc_now()).is_ok()); // Every 6 hours
+    assert!(parse("*/10 9-17 * * *", &utc_now()).is_ok()); // Every 10 min during 9-5
+    assert!(parse("0 1-12/2 * * *", &utc_now()).is_ok()); // Every 2 hours from 1-12
+    assert!(parse("30 8-20/4 * * 1-5", &utc_now()).is_ok()); // Complex pattern with range-step
 }
 
 #[test]
@@ -265,25 +291,25 @@ fn test_changelog_example_12_18_step_3() {
     // This should execute at 12:00, 15:00, and 18:00 each day
 
     // Starting before first execution (11:00)
-    let before_first = Utc.timestamp_opt(1_573_210_800, 0).unwrap(); // 2019-11-08 11:00:00 UTC
+    let before_first = utc_at(1_573_210_800); // 2019-11-08 11:00:00 UTC
     let next = parse("0 12-18/3 * * *", &before_first).unwrap();
     assert_eq!(next.hour(), 12);
     assert_eq!(next.minute(), 0);
 
     // Starting after first execution (13:00)
-    let after_first = Utc.timestamp_opt(1_573_218_000, 0).unwrap(); // 2019-11-08 13:00:00 UTC
+    let after_first = utc_at(1_573_218_000); // 2019-11-08 13:00:00 UTC
     let next = parse("0 12-18/3 * * *", &after_first).unwrap();
     assert_eq!(next.hour(), 15);
     assert_eq!(next.minute(), 0);
 
     // Starting after second execution (16:00)
-    let after_second = Utc.timestamp_opt(1_573_228_800, 0).unwrap(); // 2019-11-08 16:00:00 UTC
+    let after_second = utc_at(1_573_228_800); // 2019-11-08 16:00:00 UTC
     let next = parse("0 12-18/3 * * *", &after_second).unwrap();
     assert_eq!(next.hour(), 18);
     assert_eq!(next.minute(), 0);
 
     // Starting after last execution (19:00) - should go to next day
-    let after_last = Utc.timestamp_opt(1_573_239_600, 0).unwrap(); // 2019-11-08 19:00:00 UTC
+    let after_last = utc_at(1_573_239_600); // 2019-11-08 19:00:00 UTC
     let next = parse("0 12-18/3 * * *", &after_last).unwrap();
     assert_eq!(next.hour(), 12);
     assert_eq!(next.minute(), 0);
@@ -293,7 +319,7 @@ fn test_changelog_example_12_18_step_3() {
 #[test]
 fn test_range_step_edge_cases() {
     // Test edge cases for range-step
-    let now = Utc::now();
+    let now = utc_now();
 
     // Step equals range
     assert!(parse("0 12-12/1 * * *", &now).is_ok());
@@ -343,8 +369,8 @@ fn test_field_parsing() {
 #[test]
 fn test_invalid_dow_name() {
     // Invalid day-of-week names should error
-    assert!(parse("0 0 * * InvalidDay", &Utc::now()).is_err());
-    assert!(parse("0 0 * * Monday", &Utc::now()).is_err()); // Full name not supported
+    assert!(parse("0 0 * * InvalidDay", &utc_now()).is_err());
+    assert!(parse("0 0 * * Monday", &utc_now()).is_err()); // Full name not supported
 }
 
 #[test]
@@ -408,19 +434,19 @@ fn test_mixed_dow_formats() {
 fn test_cron_edge_cases() {
     // Test some edge cases with full cron expressions
     // April only has 30 days, so April 31 will error after 4-year lookahead
-    assert!(parse("0 0 31 4 *", &Utc::now()).is_err());
+    assert!(parse("0 0 31 4 *", &utc_now()).is_err());
     // Feb 31 doesn't exist, will error after 4-year lookahead
-    assert!(parse("0 0 31 2 *", &Utc::now()).is_err());
+    assert!(parse("0 0 31 2 *", &utc_now()).is_err());
 
     // Invalid: step in dow field
-    assert!(parse("0 0 * * */8", &Utc::now()).is_err()); // Step > 6 for dow
+    assert!(parse("0 0 * * */8", &utc_now()).is_err()); // Step > 6 for dow
 }
 
 #[test]
 fn test_whitespace_handling() {
     // Multiple spaces should be handled correctly
-    assert!(parse("*  *  *  *  *", &Utc::now()).is_ok());
-    assert!(parse("*/5    *    *    *    *", &Utc::now()).is_ok());
+    assert!(parse("*  *  *  *  *", &utc_now()).is_ok());
+    assert!(parse("*/5    *    *    *    *", &utc_now()).is_ok());
 }
 
 #[test]
@@ -456,7 +482,7 @@ fn test_reverse_range_with_step() {
 #[test]
 fn test_cron_never_matches() {
     // Invalid combination: February 30 will never occur
-    let now = Utc.timestamp_opt(1_573_151_292, 0).unwrap();
+    let now = utc_at(1_573_151_292);
     assert!(parse("0 0 30 2 *", &now).is_err());
 }
 
@@ -464,18 +490,21 @@ fn test_cron_never_matches() {
 #[test]
 fn test_dst_spring_forward_skipped_time() {
     // 2024-03-10 02:00 AM PST does not exist (spring forward to 3:00 AM PDT)
-    // Use Pacific timezone which has DST
-    let before_dst = Pacific.with_ymd_and_hms(2024, 3, 10, 1, 30, 0).unwrap();
+    // Use the US Pacific time zone, which has DST
+    let pacific = zone("America/Los_Angeles");
+    let before_dst = local(&pacific, civil::datetime(2024, 3, 10, 1, 30, 0, 0));
+
+    // 2:30 AM does not exist on the transition day.
+    let skipped = pacific.to_ambiguous_timestamp(civil::datetime(2024, 3, 10, 2, 30, 0, 0));
+    assert!(matches!(skipped.offset(), AmbiguousOffset::Gap { .. }));
 
     // Schedule at 2:30 AM which doesn't exist due to DST
     // The parser should skip to the next valid time
-    let result = parse("30 2 * * *", &before_dst);
-    assert!(result.is_ok());
+    let next = parse("30 2 * * *", &before_dst).unwrap();
 
-    // The result should be after the DST transition
-    let next = result.unwrap();
     // Should skip the non-existent 2:30 AM and go to the next day
-    assert!(next.day() >= 10);
+    assert_eq!(next.datetime(), civil::datetime(2024, 3, 11, 2, 30, 0, 0));
+    assert_eq!(next.time_zone(), &pacific);
 }
 
 // Test with fall back DST - ambiguous time
@@ -483,28 +512,36 @@ fn test_dst_spring_forward_skipped_time() {
 fn test_dst_fall_back_ambiguous_time() {
     // November 3, 2024: 1:00 AM happens twice (fall back)
     // Create a time during the ambiguous period
-    match Pacific.with_ymd_and_hms(2024, 11, 3, 1, 30, 0) {
-        chrono::LocalResult::Ambiguous(earlier, _later) => {
-            // Use the earlier (PDT) time
-            let result = parse("*/15 * * * *", &earlier);
-            assert!(result.is_ok());
-        }
-        chrono::LocalResult::Single(dt) => {
-            // If single, just test it works
-            let result = parse("*/15 * * * *", &dt);
-            assert!(result.is_ok());
-        }
-        chrono::LocalResult::None => {
-            panic!("1:30 AM on Nov 3 should exist");
-        }
-    }
+    let pacific = zone("America/Los_Angeles");
+    let ambiguous = pacific.to_ambiguous_zoned_datetime(civil::datetime(2024, 11, 3, 1, 30, 0, 0));
+    assert!(matches!(ambiguous.offset(), AmbiguousOffset::Fold { .. }));
+
+    // From the earlier (PDT) 1:30 the next slot is 1:45 PDT.
+    let earlier = ambiguous.clone().earlier().unwrap();
+    let next = parse("*/15 * * * *", &earlier).unwrap();
+    assert_eq!(next.datetime(), civil::datetime(2024, 11, 3, 1, 45, 0, 0));
+    assert_eq!(next.offset(), earlier.offset());
+    assert_eq!(
+        next.timestamp().as_second(),
+        earlier.timestamp().as_second() + 15 * 60
+    );
+
+    // From the later (PST) 1:30 the next slot is 1:45 PST.
+    let later = ambiguous.later().unwrap();
+    assert_eq!(
+        later.timestamp().as_second(),
+        earlier.timestamp().as_second() + 60 * 60
+    );
+    let next = parse("*/15 * * * *", &later).unwrap();
+    assert_eq!(next.datetime(), civil::datetime(2024, 11, 3, 1, 45, 0, 0));
+    assert_eq!(next.offset(), later.offset());
 }
 
 // Test with extremely restrictive cron that takes long to find next match
 #[test]
 fn test_very_restrictive_cron() {
     // Feb 29 only on leap years that fall on Friday
-    let now = Utc.timestamp_opt(1_577_836_800, 0).unwrap(); // 2020-01-01
+    let now = utc_at(1_577_836_800); // 2020-01-01
 
     // This should work as 2020-02-29 is on Saturday (day 6)
     // But if we look for Sunday (day 0), it won't match in 4 years

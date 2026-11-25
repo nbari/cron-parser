@@ -13,12 +13,12 @@ the expression and compiles its five fields into an immutable representation;
 queries then reuse that representation without allocating.
 
 ```rust
-use chrono::Utc;
 use cron_parser::Schedule;
+use jiff::ZonedDateTime;
 
 fn main() -> Result<(), cron_parser::ParseError> {
     let schedule: Schedule = "*/5 * * * *".parse()?;
-    let now = Utc::now();
+    let now = ZonedDateTime::now();
 
     let next = schedule.next_after(&now);
     let previous = schedule.previous_before(&now);
@@ -33,7 +33,8 @@ fn main() -> Result<(), cron_parser::ParseError> {
 }
 ```
 
-The query timestamp supplies the timezone. Nonexistent spring-forward minutes
+The query `ZonedDateTime` supplies the timezone, and results are returned in
+that same timezone. Nonexistent spring-forward minutes
 are skipped, while both real instants in a repeated fall-back minute are
 returned in chronological order. `next_after` and `previous_before` are always
 strictly exclusive.
@@ -43,26 +44,30 @@ need one result.
 
 Example:
 
-    use chrono::{TimeZone, Utc};
-    use chrono_tz::Europe::Lisbon;
     use cron_parser::parse;
+    use jiff::{Timestamp, ZonedDateTime, tz::TimeZone};
 
-    fn main() {
-       if let Ok(next) = parse("*/5 * * * *", &Utc::now()) {
-            println!("when: {}", next);
-       }
+    fn main() -> Result<(), Box<dyn std::error::Error>> {
+        // the current time, in the system time zone
+        let now = ZonedDateTime::now();
+        if let Ok(next) = parse("*/5 * * * *", &now) {
+            println!("when: {next}");
+        }
 
-       // passing a custom timestamp
-       if let Ok(next) = parse("0 0 29 2 *", &Utc.timestamp_opt(1893456000, 0).unwrap()) {
-            println!("next leap year: {}", next);
-            assert_eq!(next.timestamp(), 1961625600);
-       }
+        // passing a custom timestamp, in UTC
+        let after = Timestamp::from_second(1893456000)?.to_zoned_datetime(TimeZone::UTC);
+        if let Ok(next) = parse("0 0 29 2 *", &after) {
+            println!("next leap year: {next}");
+            assert_eq!(next.timestamp().as_second(), 1961625600);
+        }
 
-       assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &Utc::now()).is_ok());
-       assert!(parse("* * * * */Fri", &Utc::now()).is_err());
+        assert!(parse("2-3,9,*/15,1-8,11,9,4,5 * * * *", &now).is_ok());
+        assert!(parse("* * * * */Fri", &now).is_err());
 
-       // use custom timezone
-       assert!(parse("*/5 * * * *", &Utc::now().with_timezone(&Lisbon)).is_ok());
+        // use a custom time zone
+        assert!(parse("*/5 * * * *", &now.in_tz("Europe/Lisbon")?).is_ok());
+
+        Ok(())
     }
 
 
@@ -148,38 +153,64 @@ See the [examples/](examples/) directory for the full source code.
 
 ## Dependencies
 
-Depends on crate [chrono](https://crates.io/crates/chrono).
+Depends on crate [jiff](https://crates.io/crates/jiff) for dates and time zones.
 
 Example of `Cargo.toml`:
 
     [dependencies]
-    chrono = "^0.4"
-    cron-parser = "0.12"
+    cron-parser = "0.13"
+    jiff = "1"
 
+Time zone names are resolved by `jiff`. By default it reads the system time
+zone database on Unix and bundles one on Windows, so a name such as
+`America/New_York` is only available when the host provides it (for example
+the `tzdata` package in a container image). Enable jiff's `tzdb-bundle-always`
+feature to embed the database in your binary instead.
 
 Getting the next 10 leap year iterations:
 
-    use chrono::{DateTime, Utc};
     use cron_parser::Schedule;
+    use jiff::{Timestamp, ZonedDateTime, tz::TimeZone};
 
     fn main() {
-        let now = Utc::now();
+        let now = Timestamp::now().to_zoned_datetime(TimeZone::UTC);
         let schedule: Schedule = "0 0 29 2 *".parse().unwrap();
-        let crons = schedule.after(&now).take(10).collect::<Vec<DateTime<Utc>>>();
+        let crons = schedule.after(&now).take(10).collect::<Vec<ZonedDateTime>>();
         for x in crons {
-            println!("{} - {}", x, x.timestamp());
+            println!("{} - {}", x, x.timestamp().as_second());
         }
     }
 
 It will print something like:
 
-    2024-02-29 00:00:00 UTC - 1709164800
-    2028-02-29 00:00:00 UTC - 1835395200
-    2032-02-29 00:00:00 UTC - 1961625600
-    2036-02-29 00:00:00 UTC - 2087856000
-    2040-02-29 00:00:00 UTC - 2214086400
-    2044-02-29 00:00:00 UTC - 2340316800
-    2048-02-29 00:00:00 UTC - 2466547200
-    2052-02-29 00:00:00 UTC - 2592777600
-    2056-02-29 00:00:00 UTC - 2719008000
-    2060-02-29 00:00:00 UTC - 2845238400
+    2028-02-29T00:00:00+00:00[UTC] - 1835395200
+    2032-02-29T00:00:00+00:00[UTC] - 1961625600
+    2036-02-29T00:00:00+00:00[UTC] - 2087856000
+    2040-02-29T00:00:00+00:00[UTC] - 2214086400
+    2044-02-29T00:00:00+00:00[UTC] - 2340316800
+    2048-02-29T00:00:00+00:00[UTC] - 2466547200
+    2052-02-29T00:00:00+00:00[UTC] - 2592777600
+    2056-02-29T00:00:00+00:00[UTC] - 2719008000
+    2060-02-29T00:00:00+00:00[UTC] - 2845238400
+    2064-02-29T00:00:00+00:00[UTC] - 2971468800
+
+## Migrating from chrono
+
+Versions up to 0.12 used [chrono](https://crates.io/crates/chrono), which is no
+longer maintained. The functions and their behavior are the same; only the
+date types changed:
+
+| 0.12 (chrono)                         | 0.13 (jiff)                                           |
+| ------------------------------------- | ----------------------------------------------------- |
+| `&DateTime<Tz>` in, `DateTime<Tz>` out | `&ZonedDateTime` in, `ZonedDateTime` out              |
+| `Utc::now()`                          | `Timestamp::now().to_zoned_datetime(TimeZone::UTC)`   |
+| `Local::now()`                        | `ZonedDateTime::now()`                                |
+| `value.with_timezone(&chrono_tz::Europe::Lisbon)` | `value.in_tz("Europe/Lisbon")?`           |
+| `next.timestamp()`                    | `next.timestamp().as_second()`                        |
+| `ScheduleIterator<'_, Tz>`            | `ScheduleIterator<'_>`                                |
+
+If the rest of your application still uses chrono, convert at the boundary
+through Unix timestamps:
+
+    let cursor = jiff::Timestamp::new(value.timestamp(), value.timestamp_subsec_nanos() as i32)?
+        .in_tz("Europe/Lisbon")?;

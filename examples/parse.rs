@@ -1,5 +1,5 @@
-use chrono::Utc;
 use cron_parser::Schedule;
+use jiff::{Timestamp, tz::TimeZone};
 use std::env;
 
 fn main() {
@@ -36,10 +36,10 @@ fn main() {
     }
 
     // Get current time
-    let now = Utc::now();
+    let now = Timestamp::now().to_zoned_datetime(TimeZone::UTC);
 
     println!("Cron expression: {cron_expr}");
-    println!("Current time:    {}", now.format("%Y-%m-%d %H:%M:%S %Z"));
+    println!("Current time:    {}", now.strftime("%Y-%m-%d %H:%M:%S %Z"));
     println!();
 
     // Compile once, then reuse the schedule for every occurrence.
@@ -50,7 +50,7 @@ fn main() {
 
             for (index, next) in schedule.after(&now).take(count).enumerate() {
                 let i = index + 1;
-                println!("{:2}. {}", i, next.format("%Y-%m-%d %H:%M:%S %Z"));
+                println!("{:2}. {}", i, next.strftime("%Y-%m-%d %H:%M:%S %Z"));
             }
         }
         Err(e) => {

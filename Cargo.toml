@@ -42,11 +42,17 @@ needless_collect = "deny"
 large_stack_arrays = "deny"
 
 [dependencies]
-chrono = { version = "0.4", default-features = false }
+jiff = { version = "1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-chrono-tz = "0.10"
+# Tests, examples and benchmarks use the bundled time zone database only, so
+# their results do not depend on the tzdata installed on the host.
+jiff = { version = "1", default-features = false, features = [
+    "std",
+    "tz-fat",
+    "tzdb-bundle-always",
+    "perf-inline",
+] }
 criterion = "0.8"
 proptest = "1"
 

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Breaking:** dates and time zones now come from [jiff](https://crates.io/crates/jiff) instead of chrono, which is unmaintained (RUSTSEC-2026-0543; chrono-tz: RUSTSEC-2026-0555). `parse()`, `Schedule::includes`, `next_after`, `previous_before`, `after`, `before`, `after_owned`, and `before_owned` take and return `jiff::ZonedDateTime` in place of `chrono::DateTime<Tz>`
+- `ScheduleIterator` and `OwnedScheduleIterator` no longer have a time zone type parameter, and now implement `Clone` and `Debug`
+- Queries skip straight to the cursor's month, day, hour, and minute instead of visiting and discarding earlier candidates. Compared with 0.12 the compiled-query benchmarks are 14% to 95% faster, most of all for `previous_before`, cursors late in the day, named time zones, and DST folds
+
+### Added
+- Tests for half-hour DST folds (`Australia/Lord_Howe`), a skipped calendar day (`Pacific/Apia`), fixed offsets, sub-minute cursors, and property tests that check `next_after`/`previous_before` against a minute-by-minute search around offset transitions
+- Benchmarks for `previous_before`, iteration, late-in-day cursors, and named time zones
+
+### Migration
+- Replace `chrono`/`chrono-tz` with `jiff = "1"` and pass a `jiff::ZonedDateTime`; see "Migrating from chrono" in the README. Schedules, parsing, error types, and the instants returned are unchanged
+- Time zone names are resolved by jiff, which by default reads the system time zone database on Unix. Names the host does not provide (for example `US/Pacific` without Debian's `tzdata-legacy`) are not found unless jiff's `tzdb-bundle-always` feature is enabled
+- The supported range is jiff's, years -9999 to 9999, which is narrower than chrono's. Queries still return `None` when no occurrence is representable
+
 ## [0.12.0] - 2026-09-24
 
 ### Added

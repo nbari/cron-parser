@@ -5,17 +5,22 @@
 //! convenient one-shot next-occurrence queries.
 //!
 //! ```
-//! use chrono::Utc;
 //! use cron_parser::Schedule;
+//! use jiff::ZonedDateTime;
 //!
 //! let schedule: Schedule = "*/5 * * * *".parse()?;
-//! let now = Utc::now();
+//! let now = ZonedDateTime::now();
 //! let next = schedule.next_after(&now).expect("future occurrence");
 //!
 //! assert!(next > now);
 //! assert!(schedule.includes(&next));
 //! # Ok::<(), cron_parser::ParseError>(())
 //! ```
+//!
+//! Dates and time zones come from [`jiff`]. The [`ZonedDateTime`] passed to a
+//! query supplies the time zone, and results are returned in that same zone.
+//! Use [`Timestamp::to_zoned_datetime`](jiff::Timestamp::to_zoned_datetime)
+//! with [`TimeZone::UTC`](jiff::tz::TimeZone::UTC) to query in UTC.
 
 mod error;
 mod field;
@@ -24,7 +29,7 @@ mod schedule;
 pub use error::{CronField, ParseError, ParseErrorKind};
 pub use schedule::{OwnedScheduleIterator, Schedule, ScheduleIterator};
 
-use chrono::{DateTime, TimeZone};
+use jiff::ZonedDateTime;
 use std::collections::BTreeSet;
 
 /// Parse an expression and return its first occurrence strictly after `after`.
@@ -36,10 +41,7 @@ use std::collections::BTreeSet;
 ///
 /// Returns a structured [`ParseError`] when the expression is invalid or no
 /// occurrence is representable after `after`.
-pub fn parse<Tz: TimeZone>(
-    expression: &str,
-    after: &DateTime<Tz>,
-) -> Result<DateTime<Tz>, ParseError> {
+pub fn parse(expression: &str, after: &ZonedDateTime) -> Result<ZonedDateTime, ParseError> {
     let schedule = Schedule::parse(expression)?;
     schedule
         .next_after(after)

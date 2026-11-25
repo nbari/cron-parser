@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used, unsafe_code)]
 
-use chrono::{TimeZone, Utc};
 use cron_parser::Schedule;
+use jiff::{ZonedDateTime, civil, tz::TimeZone};
 use std::{
     alloc::{GlobalAlloc, Layout, System},
     sync::atomic::{AtomicUsize, Ordering},
@@ -30,18 +30,28 @@ unsafe impl GlobalAlloc for CountingAllocator {
 #[global_allocator]
 static GLOBAL: CountingAllocator = CountingAllocator;
 
-#[test]
-fn compiled_utc_query_does_not_allocate() {
-    let schedule: Schedule = "*/5 * * * *".parse().expect("valid schedule");
-    let cursor = Utc
-        .with_ymd_and_hms(2026, 1, 1, 0, 0, 0)
-        .single()
-        .expect("valid cursor");
-
+fn allocations_during(query: impl FnOnce() -> Option<ZonedDateTime>) -> usize {
     ALLOCATIONS.store(0, Ordering::Relaxed);
-    let result = schedule.next_after(&cursor);
+    let result = query();
     let allocations = ALLOCATIONS.load(Ordering::Relaxed);
-
     assert!(result.is_some());
-    assert_eq!(allocations, 0);
+    allocations
+}
+
+// A single test, so no other test thread allocates while counting.
+#[test]
+fn compiled_queries_do_not_allocate() {
+    let schedule: Schedule = "*/5 * * * *".parse().expect("valid schedule");
+    let utc = civil::datetime(2026, 1, 1, 0, 0, 0, 0)
+        .to_zoned_datetime(TimeZone::UTC)
+        .expect("valid cursor");
+    let new_york = utc.with_time_zone(TimeZone::get("America/New_York").expect("known time zone"));
+
+    assert_eq!(allocations_during(|| schedule.next_after(&utc)), 0);
+    assert_eq!(allocations_during(|| schedule.previous_before(&utc)), 0);
+    assert_eq!(allocations_during(|| schedule.next_after(&new_york)), 0);
+    assert_eq!(
+        allocations_during(|| schedule.previous_before(&new_york)),
+        0
+    );
 }

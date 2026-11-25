@@ -1,5 +1,5 @@
-use chrono::Utc;
 use cron_parser::parse;
+use jiff::{Timestamp, ZonedDateTime, tz::TimeZone};
 
 fn main() {
     let title = "Common Cron Expression Patterns";
@@ -7,8 +7,8 @@ fn main() {
     println!("{}", "-".repeat(title.len()));
     println!();
 
-    let now = Utc::now();
-    println!("Current time: {}", now.format("%Y-%m-%d %H:%M:%S %Z"));
+    let now = Timestamp::now().to_zoned_datetime(TimeZone::UTC);
+    println!("Current time: {}", now.strftime("%Y-%m-%d %H:%M:%S %Z"));
     println!();
 
     let patterns = vec![
@@ -47,11 +47,11 @@ fn main() {
     println!("Tip: Use 'just run-example \"<pattern>\" --count 10' to see more occurrences");
 }
 
-fn print_pattern(now: &chrono::DateTime<chrono::Utc>, pattern: &str, description: &str) {
+fn print_pattern(now: &ZonedDateTime, pattern: &str, description: &str) {
     match parse(pattern, now) {
         Ok(next) => {
             println!("{description:<30} {pattern}");
-            println!("  Next: {}", next.format("%Y-%m-%d %H:%M:%S %Z"));
+            println!("  Next: {}", next.strftime("%Y-%m-%d %H:%M:%S %Z"));
             println!();
         }
         Err(e) => {

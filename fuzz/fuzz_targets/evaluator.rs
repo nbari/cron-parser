@@ -1,7 +1,7 @@
 #![no_main]
 
-use chrono::{TimeZone, Utc};
 use cron_parser::Schedule;
+use jiff::{Timestamp, tz::TimeZone};
 use libfuzzer_sys::fuzz_target;
 
 const EXPRESSIONS: [&str; 7] = [
@@ -27,7 +27,8 @@ fuzz_target!(|data: &[u8]| {
     }
     let raw = i64::from_le_bytes(bytes);
     let timestamp = 946_684_800 + raw.rem_euclid(4_102_444_800);
-    if let Some(cursor) = Utc.timestamp_opt(timestamp, 0).single() {
+    if let Ok(timestamp) = Timestamp::from_second(timestamp) {
+        let cursor = timestamp.to_zoned_datetime(TimeZone::UTC);
         if let Some(next) = schedule.next_after(&cursor) {
             assert!(next > cursor);
             assert!(schedule.includes(&next));

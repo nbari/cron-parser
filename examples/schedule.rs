@@ -3,9 +3,8 @@
 //! Every section uses fixed timestamps and asserts its results, so running
 //! `cargo run --example schedule` both demonstrates and checks the behavior.
 
-use chrono::{DateTime, TimeZone, Utc};
-use chrono_tz::{America::New_York, Tz};
 use cron_parser::{ParseErrorKind, Schedule};
+use jiff::{ZonedDateTime, civil, tz::TimeZone};
 use std::{collections::HashSet, error::Error};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -28,17 +27,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn utc(
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-    second: u32,
-) -> Result<DateTime<Utc>> {
-    Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
-        .single()
-        .ok_or_else(|| "invalid fixed timestamp".into())
+fn utc(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Result<ZonedDateTime> {
+    let local = civil::DateTime::new(year, month, day, hour, minute, second, 0)?;
+    Ok(local.to_zoned_datetime(TimeZone::UTC)?)
 }
 
 fn section(title: &str) {
@@ -59,9 +50,9 @@ fn compile_once_and_query() -> Result<()> {
         .previous_before(&cursor)
         .ok_or("no previous occurrence")?;
 
-    println!("cursor:   {}", cursor.format(FORMAT));
-    println!("next:     {}  (skips the weekend)", next.format(FORMAT));
-    println!("previous: {}", previous.format(FORMAT));
+    println!("cursor:   {}", cursor.strftime(FORMAT));
+    println!("next:     {}  (skips the weekend)", next.strftime(FORMAT));
+    println!("previous: {}", previous.strftime(FORMAT));
 
     assert_eq!(next, utc(2026, 1, 5, 9, 0, 0)?);
     assert_eq!(previous, utc(2026, 1, 2, 17, 45, 0)?);
@@ -106,7 +97,7 @@ fn iterators() -> Result<()> {
     let upcoming: Vec<_> = schedule.after(&cursor).take(4).collect();
     println!("next 4:");
     for value in &upcoming {
-        println!("  {}", value.format(FORMAT));
+        println!("  {}", value.strftime(FORMAT));
     }
     assert_eq!(
         upcoming,
@@ -121,7 +112,7 @@ fn iterators() -> Result<()> {
     let recent: Vec<_> = schedule.before(&cursor).take(2).collect();
     println!("previous 2:");
     for value in &recent {
-        println!("  {}", value.format(FORMAT));
+        println!("  {}", value.strftime(FORMAT));
     }
     assert_eq!(
         recent,
@@ -132,12 +123,12 @@ fn iterators() -> Result<()> {
     // from a function or stored in a struct.
     let mut owned = daily_noon_from(cursor)?;
     let first = owned.next().ok_or("owned iterator is empty")?;
-    println!("owned iterator first: {}", first.format(FORMAT));
+    println!("owned iterator first: {}", first.strftime(FORMAT));
     assert_eq!(first, utc(2026, 1, 1, 12, 0, 0)?);
     Ok(())
 }
 
-fn daily_noon_from(cursor: DateTime<Utc>) -> Result<impl Iterator<Item = DateTime<Utc>>> {
+fn daily_noon_from(cursor: ZonedDateTime) -> Result<impl Iterator<Item = ZonedDateTime>> {
     let schedule: Schedule = "0 12 * * *".parse()?;
     Ok(schedule.after_owned(cursor))
 }
@@ -168,7 +159,7 @@ fn leap_day_across_non_leap_century() -> Result<()> {
     let schedule: Schedule = "0 0 29 2 *".parse()?;
     let cursor = utc(2096, 2, 29, 0, 0, 0)?;
     let next = schedule.next_after(&cursor).ok_or("no leap day")?;
-    println!("after 2096-02-29 -> {}", next.format(FORMAT));
+    println!("after 2096-02-29 -> {}", next.strftime(FORMAT));
     assert_eq!(next, utc(2104, 2, 29, 0, 0, 0)?);
     Ok(())
 }
@@ -181,15 +172,15 @@ fn day_of_month_and_day_of_week() -> Result<()> {
     let dates: Vec<_> = friday_13th
         .after(&utc(2026, 1, 1, 0, 0, 0)?)
         .take(3)
-        .map(|value| value.format("%Y-%m-%d").to_string())
+        .map(|value| value.strftime("%Y-%m-%d").to_string())
         .collect();
     println!("next Friday the 13ths: {}", dates.join(", "));
     assert_eq!(dates, ["2026-02-13", "2026-03-13", "2026-11-13"]);
     Ok(())
 }
 
-fn new_york(utc_value: DateTime<Utc>) -> DateTime<Tz> {
-    utc_value.with_timezone(&New_York)
+fn new_york(utc_value: &ZonedDateTime) -> Result<ZonedDateTime> {
+    Ok(utc_value.in_tz("America/New_York")?)
 }
 
 /// Local times that do not exist on a spring-forward day are skipped.
@@ -197,13 +188,13 @@ fn dst_spring_forward() -> Result<()> {
     section("DST spring forward (America/New_York, 2024-03-10)");
 
     let schedule: Schedule = "30 2 * * *".parse()?;
-    let cursor = new_york(utc(2024, 3, 10, 5, 0, 0)?); // 00:00 EST
+    let cursor = new_york(&utc(2024, 3, 10, 5, 0, 0)?)?; // 00:00 EST
     let next = schedule.next_after(&cursor).ok_or("no next occurrence")?;
     println!(
         "02:30 does not exist on 2024-03-10; next is {}",
-        next.format(FORMAT)
+        next.strftime(FORMAT)
     );
-    assert_eq!(next, new_york(utc(2024, 3, 11, 6, 30, 0)?));
+    assert_eq!(next, new_york(&utc(2024, 3, 11, 6, 30, 0)?)?);
     Ok(())
 }
 
@@ -212,34 +203,34 @@ fn dst_fall_back() -> Result<()> {
     section("DST fall back (America/New_York, 2024-11-03)");
 
     let schedule: Schedule = "30 1 * * *".parse()?;
-    let cursor = new_york(utc(2024, 11, 3, 4, 0, 0)?); // 00:00 EDT
+    let cursor = new_york(&utc(2024, 11, 3, 4, 0, 0)?)?; // 00:00 EDT
     let values: Vec<_> = schedule.after(&cursor).take(3).collect();
     for value in &values {
         println!(
             "  {}  ({})",
-            value.format(FORMAT),
-            value.with_timezone(&Utc).format("%H:%M UTC")
+            value.strftime(FORMAT),
+            value.with_time_zone(TimeZone::UTC).strftime("%H:%M UTC")
         );
     }
     assert_eq!(
         values,
         [
-            new_york(utc(2024, 11, 3, 5, 30, 0)?), // 01:30 EDT
-            new_york(utc(2024, 11, 3, 6, 30, 0)?), // 01:30 EST
-            new_york(utc(2024, 11, 4, 6, 30, 0)?),
+            new_york(&utc(2024, 11, 3, 5, 30, 0)?)?, // 01:30 EDT
+            new_york(&utc(2024, 11, 3, 6, 30, 0)?)?, // 01:30 EST
+            new_york(&utc(2024, 11, 4, 6, 30, 0)?)?,
         ]
     );
 
     // Walking backwards visits the same instants in reverse order.
     let reverse: Vec<_> = schedule
-        .before(&new_york(utc(2024, 11, 3, 8, 0, 0)?))
+        .before(&new_york(&utc(2024, 11, 3, 8, 0, 0)?)?)
         .take(2)
         .collect();
     assert_eq!(
         reverse,
         [
-            new_york(utc(2024, 11, 3, 6, 30, 0)?),
-            new_york(utc(2024, 11, 3, 5, 30, 0)?)
+            new_york(&utc(2024, 11, 3, 6, 30, 0)?)?,
+            new_york(&utc(2024, 11, 3, 5, 30, 0)?)?
         ]
     );
     Ok(())

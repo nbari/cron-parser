@@ -13,14 +13,84 @@ impl FieldSet {
         value >= self.min && value <= self.max && self.bits & (1_u64 << (value - self.min)) != 0
     }
 
-    pub(crate) fn values(self) -> impl DoubleEndedIterator<Item = u32> {
-        (self.min..=self.max).filter(move |value| self.contains(*value))
+    /// All values, in ascending order.
+    pub(crate) const fn values(self) -> Values {
+        Values {
+            min: self.min,
+            bits: self.bits,
+        }
+    }
+
+    /// The values greater than or equal to `lower`, in ascending order.
+    pub(crate) const fn values_from(self, lower: u32) -> Values {
+        let skipped = lower.saturating_sub(self.min);
+        let bits = if skipped < u64::BITS {
+            self.bits & (u64::MAX << skipped)
+        } else {
+            0
+        };
+        Values {
+            min: self.min,
+            bits,
+        }
+    }
+
+    /// The values strictly less than `upper`, in ascending order.
+    pub(crate) const fn values_before(self, upper: u32) -> Values {
+        let kept = upper.saturating_sub(self.min);
+        let bits = if kept < u64::BITS {
+            self.bits & ((1_u64 << kept) - 1)
+        } else {
+            self.bits
+        };
+        Values {
+            min: self.min,
+            bits,
+        }
     }
 
     pub(crate) fn to_btree_set(self) -> BTreeSet<u32> {
         self.values().collect()
     }
 }
+
+/// The values of a [`FieldSet`], visiting only the bits that are set.
+#[derive(Clone, Debug)]
+pub(crate) struct Values {
+    min: u32,
+    bits: u64,
+}
+
+impl Iterator for Values {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.bits == 0 {
+            return None;
+        }
+        let index = self.bits.trailing_zeros();
+        self.bits &= self.bits - 1;
+        Some(self.min + index)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.bits.count_ones() as usize;
+        (remaining, Some(remaining))
+    }
+}
+
+impl DoubleEndedIterator for Values {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.bits == 0 {
+            return None;
+        }
+        let index = u64::BITS - 1 - self.bits.leading_zeros();
+        self.bits &= !(1_u64 << index);
+        Some(self.min + index)
+    }
+}
+
+impl ExactSizeIterator for Values {}
 
 pub(crate) fn parse_expression_field(
     expression: &str,

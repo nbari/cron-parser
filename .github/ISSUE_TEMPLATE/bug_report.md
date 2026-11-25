@@ -30,7 +30,7 @@ What actually happened instead.
 
 ```rust
 use cron_parser::parse;
-use chrono::Utc;
+use jiff::ZonedDateTime;
 
 // Your code here
 ```
