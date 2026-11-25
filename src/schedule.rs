@@ -4,7 +4,7 @@ use crate::{
 use jiff::{
     SignedDuration, Timestamp, ZonedDateTime,
     civil::{Date, DateTime, Time},
-    tz::{AmbiguousOffset, TimeZone},
+    tz::{AmbiguousOffset, Offset, TimeZone},
 };
 use std::{fmt, hash::Hash, str::FromStr};
 
@@ -271,8 +271,9 @@ impl Schedule {
         width: SignedDuration,
         direction: Direction,
     ) -> Option<Timestamp> {
-        let mut cursor = floor_minute(center.checked_sub(width).ok()?)?;
-        let end = floor_minute(center.checked_add(width).ok()?)?;
+        // Near the limits of the supported range the window is clamped to it.
+        let mut cursor = floor_minute(center.checked_sub(width).unwrap_or(DateTime::MIN))?;
+        let end = floor_minute(center.checked_add(width).unwrap_or(DateTime::MAX))?;
         let mut best: Option<Timestamp> = None;
 
         while cursor <= end {
@@ -292,7 +293,10 @@ impl Schedule {
                     }
                 }
             }
-            cursor = next_minute(cursor)?;
+            let Some(next) = next_minute(cursor) else {
+                break;
+            };
+            cursor = next;
         }
         best
     }
@@ -532,33 +536,40 @@ fn floor_minute(value: DateTime) -> Option<DateTime> {
     Some(DateTime::from_parts(value.date(), time))
 }
 
-/// Both instants of a repeated (fall-back) local time, earliest first.
-fn fold_instants(time_zone: &TimeZone, local: DateTime) -> Option<(Timestamp, Timestamp)> {
+/// The offsets of the first and second occurrence of a repeated (fall-back)
+/// local time.
+fn fold_offsets(time_zone: &TimeZone, local: DateTime) -> Option<(Offset, Offset)> {
     match time_zone.to_ambiguous_timestamp(local).offset() {
-        AmbiguousOffset::Fold { before, after } => Some((
-            before.to_timestamp(local).ok()?,
-            after.to_timestamp(local).ok()?,
-        )),
+        AmbiguousOffset::Fold { before, after } => Some((before, after)),
         AmbiguousOffset::Unambiguous { .. } | AmbiguousOffset::Gap { .. } => None,
     }
 }
 
+/// How far apart the two occurrences of a repeated local time are.
+fn fold_width(before: Offset, after: Offset) -> SignedDuration {
+    SignedDuration::from_secs(i64::from(before.seconds()) - i64::from(after.seconds()))
+}
+
+/// The width of the fold `value` is in, if it is the first occurrence of its
+/// local time. The second occurrence need not be representable.
 fn first_fold_width(
     time_zone: &TimeZone,
     value: Timestamp,
     local: DateTime,
 ) -> Option<SignedDuration> {
-    let (earlier, later) = fold_instants(time_zone, local)?;
-    (value == earlier).then(|| later.duration_since(earlier))
+    let (before, after) = fold_offsets(time_zone, local)?;
+    (before.to_timestamp(local).ok() == Some(value)).then(|| fold_width(before, after))
 }
 
+/// The width of the fold `value` is in, if it is the second occurrence of its
+/// local time. The first occurrence need not be representable.
 fn second_fold_width(
     time_zone: &TimeZone,
     value: Timestamp,
     local: DateTime,
 ) -> Option<SignedDuration> {
-    let (earlier, later) = fold_instants(time_zone, local)?;
-    (value == later).then(|| later.duration_since(earlier))
+    let (before, after) = fold_offsets(time_zone, local)?;
+    (after.to_timestamp(local).ok() == Some(value)).then(|| fold_width(before, after))
 }
 
 /// The real instants a local time maps to: none inside a spring-forward gap,

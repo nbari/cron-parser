@@ -428,3 +428,82 @@ fn error(
 ) -> ParseError {
     ParseError::new(expression, field, start..start + token.len(), token, kind)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CronField, FieldSet, ParseError, parse_expression_field};
+
+    fn field(token: &str, field: CronField) -> Result<FieldSet, ParseError> {
+        parse_expression_field(token, token, 0, field)
+    }
+
+    /// Bounded and reversed iteration agree with filtering every value.
+    #[test]
+    fn bounded_values_match_a_filter() -> Result<(), ParseError> {
+        let cases = [
+            ("*", CronField::Minute),
+            ("*/7", CronField::Minute),
+            ("0", CronField::Minute),
+            ("59", CronField::Minute),
+            ("5-40/3,59", CronField::Minute),
+            ("*", CronField::DayOfMonth),
+            ("1,31", CronField::DayOfMonth),
+            ("2-30/4", CronField::DayOfMonth),
+            ("*", CronField::Month),
+            ("12", CronField::Month),
+            ("0,6", CronField::DayOfWeek),
+        ];
+        for (token, kind) in cases {
+            let set = field(token, kind)?;
+            let all: Vec<u32> = (0..=70).filter(|value| set.contains(*value)).collect();
+            assert_eq!(set.values().collect::<Vec<_>>(), all, "{token}");
+            assert_eq!(set.values().len(), all.len(), "{token}");
+            assert_eq!(
+                set.values().rev().collect::<Vec<_>>(),
+                all.iter().rev().copied().collect::<Vec<_>>(),
+                "{token}"
+            );
+
+            for bound in 0..=70 {
+                let from: Vec<u32> = all
+                    .iter()
+                    .copied()
+                    .filter(|value| *value >= bound)
+                    .collect();
+                let before: Vec<u32> = all.iter().copied().filter(|value| *value < bound).collect();
+                assert_eq!(
+                    set.values_from(bound).collect::<Vec<_>>(),
+                    from,
+                    "{token} from {bound}"
+                );
+                assert_eq!(
+                    set.values_before(bound).collect::<Vec<_>>(),
+                    before,
+                    "{token} before {bound}"
+                );
+                assert_eq!(
+                    set.values_before(bound).rev().collect::<Vec<_>>(),
+                    before.iter().rev().copied().collect::<Vec<_>>(),
+                    "{token} before {bound}, reversed"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Taking from both ends never yields a value twice.
+    #[test]
+    fn values_meet_in_the_middle() -> Result<(), ParseError> {
+        let set = field("1-5", CronField::DayOfMonth)?;
+        let mut values = set.values();
+        assert_eq!(values.next(), Some(1));
+        assert_eq!(values.next_back(), Some(5));
+        assert_eq!(values.next(), Some(2));
+        assert_eq!(values.next_back(), Some(4));
+        assert_eq!(values.len(), 1);
+        assert_eq!(values.next(), Some(3));
+        assert_eq!(values.next(), None);
+        assert_eq!(values.next_back(), None);
+        Ok(())
+    }
+}

@@ -21,6 +21,13 @@
 //! query supplies the time zone, and results are returned in that same zone.
 //! Use [`Timestamp::to_zoned_datetime`](jiff::Timestamp::to_zoned_datetime)
 //! with [`TimeZone::UTC`](jiff::tz::TimeZone::UTC) to query in UTC.
+//!
+//! Local times skipped by a forward offset change never occur, and both
+//! instants of a local time repeated by a backward change do, in
+//! chronological order. Around a repeated time the search assumes that the
+//! zone has no second offset change within the width of the repetition. That
+//! holds for every zone in the IANA Time Zone Database, whose changes are days
+//! apart, but not necessarily for hand-built POSIX or `TZif` time zones.
 
 mod error;
 mod field;

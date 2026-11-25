@@ -207,10 +207,13 @@ date types changed:
 | `Local::now()`                        | `ZonedDateTime::now()`                                |
 | `value.with_timezone(&chrono_tz::Europe::Lisbon)` | `value.in_tz("Europe/Lisbon")?`           |
 | `next.timestamp()`                    | `next.timestamp().as_second()`                        |
+| `FixedOffset::east_opt(3600)`         | `TimeZone::fixed(Offset::constant(1))`                |
 | `ScheduleIterator<'_, Tz>`            | `ScheduleIterator<'_>`                                |
+| `OwnedScheduleIterator<Tz>`           | `OwnedScheduleIterator`                               |
 
 If the rest of your application still uses chrono, convert at the boundary
 through Unix timestamps:
 
-    let cursor = jiff::Timestamp::new(value.timestamp(), value.timestamp_subsec_nanos() as i32)?
-        .in_tz("Europe/Lisbon")?;
+    let nanoseconds = i128::from(value.timestamp()) * 1_000_000_000
+        + i128::from(value.timestamp_subsec_nanos());
+    let cursor = jiff::Timestamp::from_nanosecond(nanoseconds)?.in_tz("Europe/Lisbon")?;

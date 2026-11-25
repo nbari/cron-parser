@@ -5,7 +5,10 @@
     clippy::unwrap_used
 )]
 
-use cron_parser::{CronField, ParseErrorKind, Schedule, parse, parse_field};
+use cron_parser::{
+    CronField, OwnedScheduleIterator, ParseErrorKind, Schedule, ScheduleIterator, parse,
+    parse_field,
+};
 use jiff::{
     SignedDuration, Timestamp, ZonedDateTime,
     civil::{self, DateTime},
@@ -433,13 +436,135 @@ fn representable_boundaries_do_not_panic() {
 }
 
 #[test]
-fn schedule_is_send_and_sync() {
-    fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<Schedule>();
+fn folds_at_the_range_limits_are_still_searched() {
+    // A fold in the last hours of year 9999: the window around the cursor
+    // would extend past the last representable civil datetime.
+    let late_fold = TimeZone::posix("STD-23DST-24:59,J1/00:00,J365/22:50").unwrap();
+    let cursor = utc(9999, 12, 30, 21, 40).with_time_zone(late_fold);
+    assert_eq!(
+        cursor.datetime(),
+        civil::datetime(9999, 12, 31, 22, 39, 0, 0)
+    );
+    let schedule = Schedule::from_str("55 20 * * *").unwrap();
+    assert_eq!(
+        schedule.next_after(&cursor).unwrap(),
+        utc(9999, 12, 30, 21, 55)
+    );
+
+    // The window ends exactly on the last representable minute.
+    let last_minute_fold = TimeZone::posix("STD-23:01DST-24:59,J1/00:00,J365/22:58").unwrap();
+    let cursor = utc(9999, 12, 30, 21, 2).with_time_zone(last_minute_fold);
+    assert_eq!(
+        cursor.datetime(),
+        civil::datetime(9999, 12, 31, 22, 1, 0, 0)
+    );
+    let schedule = Schedule::from_str("0 21 * * *").unwrap();
+    assert_eq!(
+        schedule.next_after(&cursor).unwrap(),
+        utc(9999, 12, 30, 21, 59)
+    );
+
+    // A fold in the first hours of year -9999: the window would start before
+    // the first representable civil datetime.
+    let early_fold = TimeZone::posix("STD24:59DST21:59,J365/0,J1/5").unwrap();
+    let cursor = utc(-9999, 1, 2, 3, 29).with_time_zone(early_fold);
+    assert_eq!(cursor.datetime(), civil::datetime(-9999, 1, 1, 2, 30, 0, 0));
+    let schedule = Schedule::from_str("30 4 * * *").unwrap();
+    let previous = schedule.previous_before(&cursor).unwrap();
+    assert_eq!(previous, utc(-9999, 1, 2, 2, 29));
+    assert_eq!(
+        previous.datetime(),
+        civil::datetime(-9999, 1, 1, 4, 30, 0, 0)
+    );
 }
 
-/// Zones and local dates around which an offset transition happens.
-const TRANSITIONS: [(&str, i16, i8, i8); 9] = [
+#[test]
+fn schedule_and_iterators_are_send_and_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Schedule>();
+    assert_send_sync::<ScheduleIterator<'static>>();
+    assert_send_sync::<OwnedScheduleIterator>();
+}
+
+/// The first whole second strictly after `cursor` that the schedule includes.
+fn next_by_search(schedule: &Schedule, cursor: &ZonedDateTime, limit: i64) -> Option<Timestamp> {
+    let first =
+        i64::try_from(cursor.timestamp().as_nanosecond().div_euclid(1_000_000_000)).unwrap() + 1;
+    (first..first + limit)
+        .map(|second| Timestamp::from_second(second).unwrap())
+        .find(|instant| schedule.includes(&instant.to_zoned_datetime(cursor.time_zone().clone())))
+}
+
+/// The last whole second strictly before `cursor` that the schedule includes.
+fn previous_by_search(
+    schedule: &Schedule,
+    cursor: &ZonedDateTime,
+    limit: i64,
+) -> Option<Timestamp> {
+    let last = -i64::try_from((-cursor.timestamp().as_nanosecond()).div_euclid(1_000_000_000))
+        .unwrap()
+        - 1;
+    (last - limit + 1..=last)
+        .rev()
+        .map(|second| Timestamp::from_second(second).unwrap())
+        .find(|instant| schedule.includes(&instant.to_zoned_datetime(cursor.time_zone().clone())))
+}
+
+#[test]
+fn wide_and_sub_minute_folds_match_a_second_by_second_search() {
+    // A two-hour fold, a whole repeated day, and a fold between offsets that
+    // are not whole minutes, where occurrences fall between UTC minutes.
+    let cases = [
+        (
+            "America/Argentina/Catamarca",
+            civil::date(1991, 3, 3),
+            2 * 3600,
+        ),
+        ("America/Adak", civil::date(1867, 10, 19), 24 * 3600),
+        ("Europe/Paris", civil::date(1911, 3, 11), 9 * 60 + 21),
+    ];
+    let schedule = Schedule::from_str("*/7 * * * *").unwrap();
+    let nanosecond = SignedDuration::from_nanos(1);
+
+    for (name, date, expected_width) in cases {
+        let time_zone = zone(name);
+        let (instant, before, after) = transition_near(&time_zone, date);
+        let width = i64::from(before.seconds() - after.seconds());
+        assert_eq!(width, expected_width, "{name}");
+
+        // Cursors across both occurrences of the fold and half an hour around
+        // it, on and off whole seconds, plus the transition instant itself.
+        let span = width + 1800;
+        let offsets = (-span..=span).step_by(601).chain([-1, 0, 1]);
+        for offset in offsets {
+            let base = seconds_after(&instant.to_zoned_datetime(time_zone.clone()), offset);
+            for cursor in [
+                base.checked_sub(nanosecond).unwrap(),
+                base.clone(),
+                base.checked_add(nanosecond).unwrap(),
+            ] {
+                let next = schedule.next_after(&cursor).map(|value| value.timestamp());
+                assert_eq!(
+                    next,
+                    next_by_search(&schedule, &cursor, 900),
+                    "{name} after {cursor}"
+                );
+                let previous = schedule
+                    .previous_before(&cursor)
+                    .map(|value| value.timestamp());
+                assert_eq!(
+                    previous,
+                    previous_by_search(&schedule, &cursor, 900),
+                    "{name} before {cursor}"
+                );
+            }
+        }
+    }
+}
+
+/// Zones and local dates on which their offset changes: four gaps, three
+/// folds (one of them half an hour wide), and a skipped day.
+const TRANSITIONS: [(&str, i16, i8, i8); 7] = [
     ("America/New_York", 2024, 3, 10),
     ("America/New_York", 2024, 11, 3),
     ("Europe/Lisbon", 2024, 3, 31),
@@ -447,21 +572,81 @@ const TRANSITIONS: [(&str, i16, i8, i8); 9] = [
     ("Australia/Lord_Howe", 2024, 4, 7),
     ("Australia/Lord_Howe", 2024, 10, 6),
     ("Pacific/Apia", 2011, 12, 30),
-    ("Asia/Kolkata", 2024, 6, 15),
-    ("UTC", 2024, 2, 29),
 ];
 
-/// A cursor within two days of one of the `TRANSITIONS`.
-fn transition_cursor(index: usize, offset_seconds: i64) -> ZonedDateTime {
-    let (name, year, month, day) = TRANSITIONS[index];
-    let midnight = civil::date(year, month, day)
+/// The first offset change of `time_zone` on or after the day before `date`,
+/// with the offsets in effect before and after it.
+fn transition_near(time_zone: &TimeZone, date: civil::Date) -> (Timestamp, Offset, Offset) {
+    let day_before = date
+        .yesterday()
+        .unwrap()
         .at(0, 0, 0, 0)
         .to_zoned_datetime(TimeZone::UTC)
-        .unwrap();
-    seconds_after(&midnight, offset_seconds).with_time_zone(zone(name))
+        .unwrap()
+        .timestamp();
+    let transition = time_zone.following(day_before).next().unwrap();
+    let instant = transition.timestamp();
+    let before = time_zone.to_offset(instant - SignedDuration::from_secs(1));
+    (instant, before, transition.offset())
 }
 
-/// Every minute-aligned instant strictly between two instants.
+/// A cursor `offset_seconds` away from the instant of one of the `TRANSITIONS`.
+fn transition_cursor(index: usize, offset_seconds: i64) -> ZonedDateTime {
+    let (name, year, month, day) = TRANSITIONS[index];
+    let time_zone = zone(name);
+    let (instant, _, _) = transition_near(&time_zone, civil::date(year, month, day));
+    seconds_after(&instant.to_zoned_datetime(time_zone), offset_seconds)
+}
+
+/// Mostly within three hours of the transition, so that cursors regularly
+/// land inside a gap's neighbourhood or either occurrence of a fold.
+fn transition_offset() -> impl Strategy<Value = i64> {
+    prop_oneof![
+        3 => -10_800_i64..10_800,
+        1 => -172_800_i64..172_800,
+    ]
+}
+
+/// Minute fields that do and do not include minute 0, so that the nearest
+/// match can be on either side of the cursor's own minute within a fold.
+fn minute_field() -> impl Strategy<Value = String> {
+    prop_oneof![
+        (1_u32..60).prop_map(|step| format!("*/{step}")),
+        (0_u32..60).prop_map(|minute| minute.to_string()),
+        (0_u32..60, 1_u32..60).prop_map(|(minute, step)| format!("{minute}/{step}")),
+    ]
+}
+
+#[test]
+fn transition_table_has_gaps_and_folds() {
+    let (mut gaps, mut folds) = (0, 0);
+    for (name, year, month, day) in TRANSITIONS {
+        let time_zone = zone(name);
+        let date = civil::date(year, month, day);
+        let (instant, before, after) = transition_near(&time_zone, date);
+        let midnight = date
+            .at(0, 0, 0, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
+        assert!(
+            instant.duration_since(midnight).abs() < SignedDuration::from_hours(24),
+            "{name} has no transition on {date}"
+        );
+        // `minutes_between` relies on whole-minute offsets.
+        assert_eq!(before.seconds() % 60, 0);
+        assert_eq!(after.seconds() % 60, 0);
+        if after.seconds() > before.seconds() {
+            gaps += 1;
+        } else {
+            folds += 1;
+        }
+    }
+    assert_eq!((gaps, folds), (4, 3));
+}
+
+/// Every minute-aligned instant strictly between two instants, for zones
+/// whose offsets are whole minutes.
 fn minutes_between(
     start: &ZonedDateTime,
     end: &ZonedDateTime,
@@ -499,11 +684,11 @@ proptest! {
     #[test]
     fn zoned_queries_find_the_nearest_match_around_transitions(
         index in 0..TRANSITIONS.len(),
-        offset_seconds in -172_800_i64..172_800,
-        minute_step in 1_u32..60,
+        offset_seconds in transition_offset(),
+        minutes in minute_field(),
         hours in prop::sample::select(vec!["*", "0-3", "1", "2", "1,2", "*/6"]),
     ) {
-        let expression = format!("*/{minute_step} {hours} * * *");
+        let expression = format!("{minutes} {hours} * * *");
         let schedule = Schedule::from_str(&expression).unwrap();
         let cursor = transition_cursor(index, offset_seconds);
 
@@ -536,7 +721,7 @@ proptest! {
     #[test]
     fn iterators_agree_in_both_directions(
         index in 0..TRANSITIONS.len(),
-        offset_seconds in -172_800_i64..172_800,
+        offset_seconds in transition_offset(),
         minute in 0_u32..60,
         hours in prop::sample::select(vec!["*", "0-3", "1", "2"]),
     ) {

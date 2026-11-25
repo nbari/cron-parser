@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Queries skip straight to the cursor's month, day, hour, and minute instead of visiting and discarding earlier candidates. Compared with 0.12 the compiled-query benchmarks are 14% to 95% faster, most of all for `previous_before`, cursors late in the day, named time zones, and DST folds
 
 ### Added
-- Tests for half-hour DST folds (`Australia/Lord_Howe`), a skipped calendar day (`Pacific/Apia`), fixed offsets, sub-minute cursors, and property tests that check `next_after`/`previous_before` against a minute-by-minute search around offset transitions
+- Tests for half-hour, multi-hour, and whole-day DST folds, folds between offsets that are not whole minutes, a skipped calendar day (`Pacific/Apia`), fixed offsets, sub-minute cursors, folds at the limits of the supported range, and property tests that check `next_after`/`previous_before` against a minute-by-minute search around offset transitions
 - Benchmarks for `previous_before`, iteration, late-in-day cursors, and named time zones
 
 ### Migration
