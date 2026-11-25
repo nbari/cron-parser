@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.13.0] - 2026-11-25
 
 ### Changed
 - **Breaking:** dates and time zones now come from [jiff](https://crates.io/crates/jiff) instead of chrono, which is unmaintained (RUSTSEC-2026-0543; chrono-tz: RUSTSEC-2026-0555). `parse()`, `Schedule::includes`, `next_after`, `previous_before`, `after`, `before`, `after_owned`, and `before_owned` take and return `jiff::ZonedDateTime` in place of `chrono::DateTime<Tz>`
@@ -15,11 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Tests for half-hour, multi-hour, and whole-day DST folds, folds between offsets that are not whole minutes, a skipped calendar day (`Pacific/Apia`), fixed offsets, sub-minute cursors, folds at the limits of the supported range, and property tests that check `next_after`/`previous_before` against a minute-by-minute search around offset transitions
 - Benchmarks for `previous_before`, iteration, late-in-day cursors, and named time zones
+- `AI_POLICY.md`, the project policy on AI-assisted contributions
+
+### Fixed
+- A DST fold within its own width of the first or last supported datetime is now searched instead of yielding no occurrence. Only hand-built POSIX or `TZif` time zones can place a fold there
 
 ### Migration
 - Replace `chrono`/`chrono-tz` with `jiff = "1"` and pass a `jiff::ZonedDateTime`; see "Migrating from chrono" in the README. Schedules, parsing, error types, and the instants returned are unchanged
 - Time zone names are resolved by jiff, which by default reads the system time zone database on Unix. Names the host does not provide (for example `US/Pacific` without Debian's `tzdata-legacy`) are not found unless jiff's `tzdb-bundle-always` feature is enabled
 - The supported range is jiff's, years -9999 to 9999, which is narrower than chrono's. Queries still return `None` when no occurrence is representable
+- Around a repeated (fall-back) local time the search assumes no second offset change within the width of the repetition. Every IANA zone satisfies this; hand-built POSIX or `TZif` zones may not. This was already the case in 0.12 and is now documented
 
 ## [0.12.0] - 2026-09-24
 
